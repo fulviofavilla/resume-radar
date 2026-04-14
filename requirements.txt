@@ -1,0 +1,22 @@
+# API
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# LLM & Agent
+openai==1.35.3
+langgraph==0.1.19
+langchain-core==0.2.10
+
+# PDF parsing
+pdfplumber==0.11.0
+
+# HTTP client (for job APIs)
+httpx==0.27.0
+
+# Config
+pydantic==2.7.4
+pydantic-settings==2.3.4
+
+# Vector DB (v2 — ChromaDB semantic matching)
+# chromadb==0.5.3
