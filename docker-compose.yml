@@ -5,10 +5,9 @@ services:
       - "8000:8000"
     env_file:
       - .env
-    volumes:
-      - chroma_data:/app/chroma_db
     depends_on:
-      - vectordb
+      vectordb:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -17,12 +16,19 @@ services:
       retries: 3
 
   vectordb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:1.0.0
     ports:
       - "8001:8000"
     volumes:
-      - chroma_data:/chroma/chroma
+      - chroma_data:/data
     restart: unless-stopped
+    healthcheck:
+      # ChromaDB slim image has no curl — use bash /dev/tcp instead
+      test: ["CMD", "/bin/bash", "-c", "</dev/tcp/localhost/8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   chroma_data:
