@@ -17,6 +17,7 @@ Given a candidate's profile and the gap analysis below, generate 5 specific, act
 
 Candidate profile:
 - Skills: {skills}
+- Demonstrated capabilities (inferred from experience): {inferred_skills}
 - Seniority: {seniority}
 - Summary: {summary}
 
@@ -71,6 +72,7 @@ async def generate_report_node(state: AgentState) -> AgentState:
                     "role": "user",
                     "content": REPORT_PROMPT.format(
                         skills=", ".join(profile.skills),
+                        inferred_skills=", ".join(profile.inferred_skills),
                         seniority=profile.seniority,
                         summary=profile.summary,
                         missing_skills=", ".join(gaps.missing_skills),

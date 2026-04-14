@@ -16,17 +16,29 @@ logger = logging.getLogger(__name__)
 def _build_search_keywords(state: AgentState) -> list[str]:
     """
     Build a focused keyword list for job search.
-    Combines top skills from the resume + optional target role.
+
+    Strategy: target_role is the primary signal. Skills are used only to
+    build a compact secondary query — too many keywords cause RemoteOK to
+    return generic results.
     """
+    PRIORITY_SKILLS = {
+        "python", "sql", "aws", "azure", "gcp", "spark", "pyspark",
+        "airflow", "docker", "kubernetes", "dbt", "kafka", "fastapi",
+        "langchain", "langgraph", "pytorch", "tensorflow", "scikit-learn",
+    }
+
     keywords = []
 
-    # Target role always goes first (highest signal)
     if state.target_role:
         keywords.append(state.target_role)
 
-    # Add top skills (cap at 8 to avoid over-filtering)
     if state.resume_profile:
-        keywords.extend(state.resume_profile.skills[:8])
+        priority = [
+            s for s in state.resume_profile.skills
+            if s.lower() in PRIORITY_SKILLS
+        ]
+        # Up to 3 priority skills — enough signal without over-filtering
+        keywords.extend(priority[:3])
 
     return keywords
 

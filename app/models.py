@@ -24,7 +24,8 @@ class AnalyzeResponse(BaseModel):
 
 class ResumeProfile(BaseModel):
     skills: list[str]
-    seniority: str  # junior / mid / senior
+    inferred_skills: list[str] = []
+    seniority: str
     years_of_experience: Optional[int] = None
     summary: str
     raw_text: str
