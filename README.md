@@ -1,22 +1,95 @@
 # 📡 ResumeRadar
 
-> AI-powered resume analyzer that matches your profile against real job postings and surfaces skill gaps — so you know exactly what to learn next.
+> AI-powered resume analyzer. Upload your PDF, get matched against real job postings, and surface exactly what skills are holding you back.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-green?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangGraph](https://img.shields.io/badge/LangGraph-0.1+-orange?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-FF6B35?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-1.0-E91E63?logo=databricks&logoColor=white)](https://trychroma.com)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E.svg)](LICENSE)
 
 ---
 
-## What it does
+## How it works
 
-1. **Upload your resume** (PDF) via the API
-2. **LLM extracts** your skills, experience, and seniority level
-3. **Searches real job postings** (RemoteOK + Adzuna) matching your profile
-4. **Semantic gap analysis** — compares your profile against what top jobs demand
-5. **Generates a report** with missing skills, keyword gaps, and actionable recommendations
+```
+your resume.pdf
+      │
+      ▼
+┌─────────────────┐     ┌──────────────────┐
+│  parse_resume   │     │   search_jobs    │
+│                 │     │                  │
+│ LLM extracts:   │────▶│ RemoteOK + Adzuna│
+│ • explicit      │     │ weighted keyword  │
+│   skills        │     │ relevance filter  │
+│ • inferred      │     └────────┬─────────┘
+│   capabilities  │              │
+└─────────────────┘              │
+                                 ▼
+                    ┌────────────────────────┐
+                    │      embed_match       │
+                    │                        │
+                    │ OpenAI embeddings +    │
+                    │ ChromaDB cosine sim    │
+                    │ → match_score: 0.81    │
+                    └────────────┬───────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │    generate_report     │
+                    │                        │
+                    │ LLM → 5 actionable     │
+                    │ recommendations        │
+                    └────────────────────────┘
+```
+
+---
+
+## Demo
+
+```bash
+# 1. Start the stack
+docker compose up --build
+
+# 2. Analyze a resume
+curl -X POST http://localhost:8000/analyze \
+  -F "file=@resume.pdf" \
+  -F "target_role=Data Engineer"
+
+# → {"job_id": "ae200425-...", "status": "processing"}
+
+# 3. Get results (~20-30s)
+curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
+```
+
+**Output:**
+```json
+{
+  "status": "completed",
+  "resume_profile": {
+    "skills": ["Python", "SQL", "AWS", "Apache Airflow", "Docker", "PySpark"],
+    "inferred_skills": ["ETL pipelines", "data governance", "CI/CD", "pipeline automation"],
+    "seniority": "mid",
+    "years_of_experience": 2
+  },
+  "report": {
+    "gap_analysis": {
+      "match_score": 0.81,
+      "strengths": ["Python", "SQL", "AWS", "Azure", "Docker", "data engineering"],
+      "missing_skills": ["devops"]
+    },
+    "recommendations": [
+      "Add DevOps skills (Jenkins, Kubernetes) — appears in 4/5 top jobs, unlocks $30-50/hr roles",
+      "Highlight Apache Airflow prominently — strong differentiator for data pipeline roles",
+      "Add Terraform to your stack — frequent in cloud-native data engineering postings",
+      "AWS/Azure certification validates your cloud skills — high signal for remote roles",
+      "Quantify pipeline impact in your resume (e.g. '90% storage reduction') — stands out in ATS"
+    ],
+    "jobs_analyzed": 5
+  }
+}
+```
 
 ---
 
@@ -24,132 +97,100 @@
 
 | Layer | Tech |
 |---|---|
-| Orchestration | LangGraph (stateful agent graph) |
+| Agent Orchestration | LangGraph (stateful 4-node graph) |
 | LLM | OpenAI GPT-4o-mini |
-| Embeddings | `text-embedding-3-small` |
-| Vector DB | ChromaDB (local) |
-| API | FastAPI + Uvicorn |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
+| API | FastAPI + Uvicorn (async, background tasks) |
 | PDF Parsing | pdfplumber |
-| Job Sources | RemoteOK API, Adzuna API |
+| Job Sources | RemoteOK (no auth) + Adzuna (free tier) |
 | Containerization | Docker + Docker Compose |
 
 ---
 
 ## Quickstart
 
-### Prerequisites
-- Docker & Docker Compose
-- OpenAI API key
-- Adzuna API credentials (free tier — [sign up here](https://developer.adzuna.com/))
-
-### Run with Docker
+**Prerequisites:** Docker Desktop · OpenAI API key
 
 ```bash
 git clone https://github.com/fulviofavilla/resume-radar
 cd resume-radar
 
 cp .env.example .env
-# Edit .env with your API keys
+# Add your OPENAI_API_KEY to .env
 
 docker compose up --build
 ```
 
-API will be available at `http://localhost:8000`
+The API starts at `http://localhost:8000`. ChromaDB runs as a separate service on port `8001` and persists embeddings across restarts via a named Docker volume.
 
-### Run locally (dev)
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-pip install -r requirements.txt
-
-cp .env.example .env
-# Edit .env with your API keys
-
-uvicorn app.main:app --reload
-```
+**Optional:** Add Adzuna credentials to `.env` for broader job coverage (free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/)).
 
 ---
 
-## API Usage
+## API Reference
 
-### Analyze a resume
+### `POST /analyze`
 
-```bash
-curl -X POST http://localhost:8000/analyze \
-  -F "file=@/path/to/your/resume.pdf" \
-  -F "target_role=Data Engineer"
-```
+Upload a resume PDF and start an analysis job.
 
-**Response:**
-```json
-{
-  "job_id": "3f7a2c1d-...",
-  "status": "processing",
-  "message": "Analysis started. Poll /results/3f7a2c1d-... for updates."
-}
-```
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `file` | PDF (multipart) | ✓ | Resume file, max 10 MB |
+| `target_role` | string (form) | — | Focus the job search (e.g. `"Data Engineer"`) |
 
-### Get results
+Returns `{ job_id, status, message }`.
 
-```bash
-curl http://localhost:8000/results/3f7a2c1d-...
-```
+### `GET /results/{job_id}`
 
-**Response:**
-```json
-{
-  "job_id": "3f7a2c1d-...",
-  "status": "completed",
-  "resume_profile": {
-    "skills": ["Python", "SQL", "Apache Airflow", "AWS"],
-    "seniority": "mid",
-    "summary": "Data Engineer with 2 years experience..."
-  },
-  "jobs_analyzed": 5,
-  "gap_analysis": {
-    "missing_skills": ["dbt", "Kubernetes", "Terraform"],
-    "keyword_gaps": ["data lakehouse", "medallion architecture"],
-    "strengths": ["Python", "pipeline orchestration", "cloud platforms"]
-  },
-  "recommendations": [
-    "Add dbt to your stack — appears in 4/5 top matching jobs",
-    "Kubernetes basics would unlock senior roles ($30-50/hr range)",
-    "Your Airflow experience is a strong differentiator — highlight it more"
-  ]
-}
-```
+Poll for results. Returns `status: processing` while the agent runs.
 
-### Health check
+Returns the full analysis when `status: completed`:
+- `resume_profile` — extracted skills, inferred capabilities, seniority
+- `report.gap_analysis` — match score, strengths, missing skills
+- `report.recommendations` — 5 actionable, market-aware suggestions
+- `report.top_jobs` — the 5 job postings used for analysis
+
+### `GET /health`
 
 ```bash
 curl http://localhost:8000/health
+# {"status": "ok", "service": "resume-radar", "version": "0.1.0"}
 ```
 
 ---
 
 ## Architecture
 
+### Agent graph
+
 ```
-┌─────────────────────────────────────────────────────┐
-│                    FastAPI Layer                     │
-│         POST /analyze    GET /results/{id}           │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                  LangGraph Agent                     │
-│                                                      │
-│  [parse_resume] → [search_jobs] → [embed_and_match]  │
-│                                        │             │
-│                               [generate_report]      │
-└──────────────────────────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-   [ChromaDB]    [RemoteOK API]  [Adzuna API]
-   Vector Store   Job Search      Job Search
+parse_resume ──▶ search_jobs ──▶ embed_match ──▶ generate_report
+     │               │               │                  │
+  error?          error?          error?              END
+     └───────────────┴───────────────┴──── END (early exit)
 ```
+
+Each node operates on a shared `AgentState` dict. Any node can set `error` to short-circuit the graph — no exception handling scattered across the codebase.
+
+### Semantic matching
+
+`embed_match` uses a two-pass approach:
+1. **LLM extraction** — calls `gpt-4o-mini` in parallel on each job description to extract real required skills (not noisy job board tags)
+2. **Embedding + cosine similarity** — embeds both resume skills and job skills with `text-embedding-3-small`, stores in ChromaDB, queries for semantic proximity
+
+This is what lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity). Skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap.
+
+**Fallback:** if ChromaDB is unreachable, `embed_match` automatically falls back to keyword gap analysis — the service stays functional.
+
+### Job search
+
+RemoteOK is filtered client-side using a weighted relevance score:
+- Title match: 3 points
+- Tag match: 2 points
+- Description match: 1 point
+
+Jobs below threshold 3 are discarded. Keywords are limited to `target_role` + top 3 priority skills from the resume to avoid over-filtering.
 
 ---
 
@@ -158,22 +199,23 @@ curl http://localhost:8000/health
 ```
 resume-radar/
 ├── app/
-│   ├── main.py              # FastAPI app + endpoints
-│   ├── agent.py             # LangGraph agent definition
+│   ├── main.py              # FastAPI — /analyze, /results/{id}, /health
+│   ├── agent.py             # LangGraph graph definition + compilation
+│   ├── vector_store.py      # ChromaDB client singleton
+│   ├── models.py            # Pydantic models (AgentState, ResumeProfile, Report...)
+│   ├── config.py            # Settings via pydantic-settings + .env
 │   ├── nodes/
-│   │   ├── parse_resume.py  # PDF parsing + LLM extraction
-│   │   ├── search_jobs.py   # Job search tools
-│   │   ├── embed_match.py   # RAG + semantic matching
-│   │   └── generate_report.py  # Final report generation
-│   ├── tools/
-│   │   ├── remoteok.py      # RemoteOK API client
-│   │   └── adzuna.py        # Adzuna API client
-│   ├── models.py            # Pydantic models
-│   └── config.py            # Settings via pydantic-settings
+│   │   ├── parse_resume.py  # PDF → text → LLM → ResumeProfile + inferred skills
+│   │   ├── search_jobs.py   # Parallel job search (RemoteOK + Adzuna)
+│   │   ├── embed_match.py   # OpenAI embeddings + ChromaDB gap analysis
+│   │   └── generate_report.py  # LLM recommendations
+│   └── tools/
+│       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
+│       └── adzuna.py        # Adzuna API client (HTML strip)
 ├── tests/
 │   └── test_agent.py
 ├── Dockerfile
-├── docker-compose.yml
+├── docker-compose.yml       # api + vectordb (ChromaDB)
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -183,13 +225,11 @@ resume-radar/
 
 ## Roadmap
 
-- [x] MVP: PDF → Job Search → Gap Analysis → Report
-- [ ] ChromaDB semantic matching (replacing keyword matching)
-- [ ] Frontend UI (React or simple HTML)
-- [ ] Adzuna integration (broader job coverage)
-- [ ] Course recommendations for identified gaps
-- [ ] Resume improvement suggestions (rewrite weak bullet points)
-- [ ] Multi-language support
+- [x] v0.1 — MVP: PDF → job search → gap analysis → report
+- [x] v0.2 — Semantic matching (ChromaDB + OpenAI embeddings), HTML sanitization
+- [ ] v0.3 — Resume rewrite suggestions (improve weak bullet points)
+- [ ] v0.4 — Course recommendations for identified gaps
+- [ ] v1.0 — Rate limiting, Redis job store, optional frontend
 
 ---
 
