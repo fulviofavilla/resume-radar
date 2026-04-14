@@ -11,6 +11,7 @@ Filtering strategy:
   Jobs scoring below threshold (3) are discarded.
 """
 import httpx
+import re
 from app.models import JobPosting
 import logging
 
@@ -18,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 REMOTEOK_URL = "https://remoteok.com/api"
 SCORE_THRESHOLD = 3
+
+
+def _strip_html(text: str) -> str:
+    """Remove HTML tags from text."""
+    return re.sub(r'<[^>]+>', ' ', text).strip()
 
 
 async def search_remoteok(keywords: list[str], max_results: int = 10) -> list[JobPosting]:
@@ -33,7 +39,6 @@ async def search_remoteok(keywords: list[str], max_results: int = 10) -> list[Jo
             response.raise_for_status()
 
         raw = response.json()
-        # First element is metadata — skip it
         jobs_raw = [j for j in raw if isinstance(j, dict) and "position" in j]
 
     except Exception as e:
@@ -46,8 +51,7 @@ async def search_remoteok(keywords: list[str], max_results: int = 10) -> list[Jo
     for job in jobs_raw:
         title = job.get("position", "").lower()
         original_description = job.get("description", "")
-        description = original_description.lower()
-        # Keep original case for tags in JobPosting; use lowercase for scoring
+        description_lower = original_description.lower()
         original_tags = job.get("tags", [])
         tag_text = " ".join(t.lower() for t in original_tags)
 
@@ -55,11 +59,14 @@ async def search_remoteok(keywords: list[str], max_results: int = 10) -> list[Jo
         score = (
             sum(3 for kw in keywords_lower if kw in title) +
             sum(2 for kw in keywords_lower if kw in tag_text) +
-            sum(1 for kw in keywords_lower if kw in description)
+            sum(1 for kw in keywords_lower if kw in description_lower)
         )
 
         if score < SCORE_THRESHOLD:
             continue
+
+        # Strip HTML before storing — keeps JSON output clean
+        clean_description = _strip_html(original_description)
 
         matched.append((
             score,
@@ -67,13 +74,12 @@ async def search_remoteok(keywords: list[str], max_results: int = 10) -> list[Jo
                 title=job.get("position", "Unknown"),
                 company=job.get("company", "Unknown"),
                 url=job.get("url", f"https://remoteok.com/remote-jobs/{job.get('id', '')}"),
-                description=original_description[:2000],  # preserve case for LLM
-                required_skills=original_tags,   # will be replaced by LLM in embed_match
+                description=clean_description[:2000],  # clean, capped
+                required_skills=original_tags,          # replaced by LLM in embed_match
                 source="remoteok",
             )
         ))
 
-    # Sort by score descending, return top N
     matched.sort(key=lambda x: x[0], reverse=True)
     results = [job for _, job in matched[:max_results]]
 

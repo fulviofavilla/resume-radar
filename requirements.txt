@@ -18,5 +18,5 @@ httpx>=0.27.0
 pydantic>=2.7.0
 pydantic-settings>=2.3.0
 
-# Vector DB (v2 — ChromaDB semantic matching)
-# chromadb==0.5.3
+# Vector DB — semantic matching
+chromadb>=1.0.0

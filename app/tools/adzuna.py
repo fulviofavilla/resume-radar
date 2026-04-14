@@ -4,28 +4,17 @@ Free tier: 250 requests/day.
 Sign up: https://developer.adzuna.com/
 """
 import httpx
+import re
 from app.models import JobPosting
 from app.config import get_settings
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_skills_from_description(description: str) -> list[str]:
-    """
-    Naive skill extractor from job description text.
-    Good enough for MVP — will be replaced by LLM extraction in v2.
-    """
-    common_skills = [
-        "python", "sql", "aws", "azure", "gcp", "docker", "kubernetes",
-        "fastapi", "django", "flask", "spark", "airflow", "kafka", "dbt",
-        "terraform", "langchain", "langgraph", "pandas", "scikit-learn",
-        "pytorch", "tensorflow", "react", "typescript", "java", "scala",
-        "postgresql", "mongodb", "redis", "elasticsearch",
-    ]
-    desc_lower = description.lower()
-    return [skill for skill in common_skills if skill in desc_lower]
+def _strip_html(text: str) -> str:
+    """Remove HTML tags from text."""
+    return re.sub(r'<[^>]+>', ' ', text).strip()
 
 
 async def search_adzuna(keywords: list[str], max_results: int = 10) -> list[JobPosting]:
@@ -39,7 +28,7 @@ async def search_adzuna(keywords: list[str], max_results: int = 10) -> list[JobP
         logger.info("Adzuna credentials not set — skipping.")
         return []
 
-    query = " ".join(keywords[:5])  # Adzuna works best with 3-5 keywords
+    query = " ".join(keywords[:5])
     url = (
         f"https://api.adzuna.com/v1/api/jobs/{settings.adzuna_country}/search/1"
         f"?app_id={settings.adzuna_app_id}"
@@ -60,14 +49,15 @@ async def search_adzuna(keywords: list[str], max_results: int = 10) -> list[JobP
 
     jobs = []
     for item in data.get("results", []):
-        description = item.get("description", "")
+        # Strip HTML before storing — keeps JSON output clean
+        description = _strip_html(item.get("description", ""))
         jobs.append(
             JobPosting(
                 title=item.get("title", "Unknown"),
                 company=item.get("company", {}).get("display_name", "Unknown"),
                 url=item.get("redirect_url", ""),
                 description=description[:2000],
-                required_skills=_extract_skills_from_description(description),
+                required_skills=[],  # populated by LLM in embed_match
                 source="adzuna",
             )
         )

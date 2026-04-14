@@ -13,8 +13,9 @@ class Settings(BaseSettings):
     adzuna_api_key: str = ""
     adzuna_country: str = "us"
 
-    # ChromaDB
-    chroma_persist_dir: str = "./chroma_db"
+    # ChromaDB — host points to the Docker service name
+    chroma_host: str = "vectordb"
+    chroma_port: int = 8000
     chroma_collection_name: str = "job_postings"
 
     # Agent
