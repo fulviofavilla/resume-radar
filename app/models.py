@@ -47,11 +47,27 @@ class GapAnalysis(BaseModel):
     match_score: float = Field(..., ge=0.0, le=1.0)
 
 
+class RewriteSuggestion(BaseModel):
+    original: str = Field(..., description="Original bullet point or section text from the resume")
+    rewrite: str = Field(..., description="Improved version tailored to the job market gaps")
+    reason: str = Field(..., description="Why this rewrite improves the candidate's positioning")
+    section: str = Field(..., description="Resume section this belongs to (e.g. 'Experience', 'Summary', 'Skills')")
+    alignment_note: str = Field(
+        default="",
+        description="Which market skills this rewrite incorporates and how frequently they appear in top jobs"
+    )
+    quantification_is_estimated: bool = Field(
+        default=False,
+        description="True if the rewrite contains quantified metrics not present in the original — treat as suggested placeholders to replace with real numbers"
+    )
+
+
 class Report(BaseModel):
     gap_analysis: GapAnalysis
     recommendations: list[str]
     jobs_analyzed: int
     top_jobs: list[JobPosting]
+    resume_rewrites: list[RewriteSuggestion] = []
 
 
 class ResultsResponse(BaseModel):
