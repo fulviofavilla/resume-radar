@@ -11,6 +11,7 @@ from app.nodes.parse_resume import parse_resume_node
 from app.nodes.search_jobs import search_jobs_node
 from app.nodes.embed_match import embed_match_node
 from app.nodes.generate_report import generate_report_node
+from app.nodes.rewrite_resume import rewrite_resume_node
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,10 @@ def build_agent() -> StateGraph:
         result = await generate_report_node(AgentState(**state))
         return result.dict()
 
+    async def _rewrite_resume(state: dict) -> dict:
+        result = await rewrite_resume_node(AgentState(**state))
+        return result.dict()
+
     def _check_error(state: dict) -> str:
         return "end" if state.get("error") else "continue"
 
@@ -62,6 +67,7 @@ def build_agent() -> StateGraph:
     graph.add_node("search_jobs", _search_jobs)
     graph.add_node("embed_match", _embed_match)
     graph.add_node("generate_report", _generate_report)
+    graph.add_node("rewrite_resume", _rewrite_resume)
 
     # --- Define edges ---
     graph.set_entry_point("parse_resume")
@@ -81,7 +87,8 @@ def build_agent() -> StateGraph:
         _check_error,
         {"continue": "generate_report", "end": END},
     )
-    graph.add_edge("generate_report", END)
+    graph.add_edge("generate_report", "rewrite_resume")
+    graph.add_edge("rewrite_resume", END)
 
     return graph.compile()
 
