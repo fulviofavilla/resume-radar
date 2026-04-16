@@ -1,6 +1,6 @@
 # 📡 ResumeRadar
 
-> AI-powered resume analyzer. Upload your PDF, get matched against real job postings, and surface exactly what skills are holding you back.
+> AI-powered resume analyzer. Upload your PDF, get matched against real job postings, surface skill gaps, and get targeted rewrite suggestions for weak bullet points.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -41,6 +41,15 @@ your resume.pdf
                     │                        │
                     │ LLM → 5 actionable     │
                     │ recommendations        │
+                    └────────────┬───────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │    rewrite_resume      │
+                    │                        │
+                    │ LLM scores bullets,    │
+                    │ rewrites weak ones     │
+                    │ anchored to market     │
                     └────────────────────────┘
 ```
 
@@ -59,7 +68,7 @@ curl -X POST http://localhost:8000/analyze \
 
 # → {"job_id": "ae200425-...", "status": "processing"}
 
-# 3. Get results (~20-30s)
+# 3. Get results (~25-35s)
 curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
 ```
 
@@ -77,19 +86,31 @@ curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
     "gap_analysis": {
       "match_score": 0.81,
       "strengths": ["Python", "SQL", "AWS", "Azure", "Docker", "data engineering"],
-      "missing_skills": ["devops"]
+      "missing_skills": ["dbt", "Kafka"]
     },
     "recommendations": [
-      "Add DevOps skills (Jenkins, Kubernetes) — appears in 4/5 top jobs, unlocks $30-50/hr roles",
+      "Add dbt to your stack — appears in 4/5 top jobs, unlocks $30-50/hr roles",
       "Highlight Apache Airflow prominently — strong differentiator for data pipeline roles",
-      "Add Terraform to your stack — frequent in cloud-native data engineering postings",
+      "Add Terraform — frequent in cloud-native data engineering postings",
       "AWS/Azure certification validates your cloud skills — high signal for remote roles",
       "Quantify pipeline impact in your resume (e.g. '90% storage reduction') — stands out in ATS"
     ],
-    "jobs_analyzed": 5
+    "jobs_analyzed": 5,
+    "resume_rewrites": [
+      {
+        "original": "Designed and optimized scalable data pipelines...",
+        "rewrite": "Engineered scalable data pipelines processing 10M+ daily records, improving query performance and schema efficiency to handle large-scale datasets.",
+        "reason": "Original lacked specificity and quantification.",
+        "section": "Software Engineer Intern",
+        "alignment_note": "Incorporates 'data pipelines' — present in 4/5 top matching jobs.",
+        "quantification_is_estimated": true
+      }
+    ]
   }
 }
 ```
+
+> **Note on `quantification_is_estimated`:** when `true`, the rewrite introduced numeric metrics not present in the original bullet. These are suggested placeholders — replace them with your real numbers before updating your resume.
 
 ---
 
@@ -97,7 +118,7 @@ curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
 
 | Layer | Tech |
 |---|---|
-| Agent Orchestration | LangGraph (stateful 4-node graph) |
+| Agent Orchestration | LangGraph (stateful 5-node graph) |
 | LLM | OpenAI GPT-4o-mini |
 | Embeddings | OpenAI `text-embedding-3-small` |
 | Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
@@ -150,12 +171,13 @@ Returns the full analysis when `status: completed`:
 - `report.gap_analysis` — match score, strengths, missing skills
 - `report.recommendations` — 5 actionable, market-aware suggestions
 - `report.top_jobs` — the 5 job postings used for analysis
+- `report.resume_rewrites` — targeted rewrites for weak bullets, with market alignment notes
 
 ### `GET /health`
 
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "0.1.0"}
+# {"status": "ok", "service": "resume-radar", "version": "0.3.0"}
 ```
 
 ---
@@ -165,13 +187,13 @@ curl http://localhost:8000/health
 ### Agent graph
 
 ```
-parse_resume ──▶ search_jobs ──▶ embed_match ──▶ generate_report
-     │               │               │                  │
-  error?          error?          error?              END
+parse_resume → search_jobs → embed_match → generate_report → rewrite_resume
+     │               │               │               │
+  error?          error?          error?           END (on error)
      └───────────────┴───────────────┴──── END (early exit)
 ```
 
-Each node operates on a shared `AgentState` dict. Any node can set `error` to short-circuit the graph — no exception handling scattered across the codebase.
+`rewrite_resume` is connected with a plain edge (no conditional) — it handles its own failures silently and never blocks the rest of the pipeline.
 
 ### Semantic matching
 
@@ -182,6 +204,14 @@ Each node operates on a shared `AgentState` dict. Any node can set `error` to sh
 This is what lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity). Skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap.
 
 **Fallback:** if ChromaDB is unreachable, `embed_match` automatically falls back to keyword gap analysis — the service stays functional.
+
+### Resume rewrite
+
+`rewrite_resume` runs two LLM calls in sequence:
+1. **Segmentation** — extracts bullets and summary from raw PDF text
+2. **Scoring + rewrite** — scores each bullet for market impact (1–10), rewrites those scoring 6 or below
+
+Market anchor: uses `missing_skills` when available; falls back to the union of `required_skills` across top job postings for strong profiles (high match score, empty gaps). This ensures rewrites are always grounded in real market signal rather than generic improvement advice.
 
 ### Job search
 
@@ -205,10 +235,11 @@ resume-radar/
 │   ├── models.py            # Pydantic models (AgentState, ResumeProfile, Report...)
 │   ├── config.py            # Settings via pydantic-settings + .env
 │   ├── nodes/
-│   │   ├── parse_resume.py  # PDF → text → LLM → ResumeProfile + inferred skills
-│   │   ├── search_jobs.py   # Parallel job search (RemoteOK + Adzuna)
-│   │   ├── embed_match.py   # OpenAI embeddings + ChromaDB gap analysis
-│   │   └── generate_report.py  # LLM recommendations
+│   │   ├── parse_resume.py     # PDF → text → LLM → ResumeProfile + inferred skills
+│   │   ├── search_jobs.py      # Parallel job search (RemoteOK + Adzuna)
+│   │   ├── embed_match.py      # OpenAI embeddings + ChromaDB gap analysis
+│   │   ├── generate_report.py  # LLM recommendations
+│   │   └── rewrite_resume.py   # LLM bullet scoring + targeted rewrites
 │   └── tools/
 │       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
 │       └── adzuna.py        # Adzuna API client (HTML strip)
@@ -227,8 +258,8 @@ resume-radar/
 
 - [x] v0.1 — MVP: PDF → job search → gap analysis → report
 - [x] v0.2 — Semantic matching (ChromaDB + OpenAI embeddings), HTML sanitization
-- [ ] v0.3 — Resume rewrite suggestions (improve weak bullet points)
-- [ ] v0.4 — Course recommendations for identified gaps
+- [x] v0.3 — Resume rewrite suggestions: bullet scoring, market-anchored rewrites, `alignment_note`, `quantification_is_estimated`
+- [ ] v0.4 — Course recommendations for identified skill gaps
 - [ ] v1.0 — Rate limiting, Redis job store, optional frontend
 
 ---
