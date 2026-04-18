@@ -2,9 +2,16 @@
 ResumeRadar Agent — LangGraph graph definition.
 
 Graph:
-  parse_resume → search_jobs → embed_match → generate_report
+  parse_resume → search_jobs → embed_match → generate_report → rewrite_resume
                      ↓ (on error, any node routes to END)
+
+Progress events:
+  Each node publishes a ProgressEvent to an asyncio.Queue before executing.
+  The SSE endpoint in main.py consumes this queue and streams events to the client.
+  Use register_progress_queue(job_id, queue) before invoking the agent,
+  and unregister_progress_queue(job_id) after completion.
 """
+import asyncio
 from langgraph.graph import StateGraph, END
 from app.models import AgentState
 from app.nodes.parse_resume import parse_resume_node
@@ -16,46 +23,62 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Progress event system
+# ---------------------------------------------------------------------------
 
-def should_continue(state: AgentState) -> str:
-    """
-    Conditional edge: if any node set an error, route to END immediately.
-    Otherwise continue to the next node.
-    """
-    if state.error:
-        logger.warning(f"[{state.job_id}] Agent stopping early — error: {state.error}")
-        return "end"
-    return "continue"
+# Map of job_id → asyncio.Queue for SSE progress streaming
+_progress_queues: dict[str, asyncio.Queue] = {}
 
+
+def register_progress_queue(job_id: str, queue: asyncio.Queue) -> None:
+    _progress_queues[job_id] = queue
+
+
+def unregister_progress_queue(job_id: str) -> None:
+    _progress_queues.pop(job_id, None)
+
+
+async def _emit(job_id: str, step: str, message: str) -> None:
+    """Publish a progress event to the job's queue, if one is registered."""
+    queue = _progress_queues.get(job_id)
+    if queue:
+        await queue.put({"step": step, "message": message})
+
+
+# ---------------------------------------------------------------------------
+# Graph
+# ---------------------------------------------------------------------------
 
 def build_agent() -> StateGraph:
     """Build and compile the ResumeRadar LangGraph agent."""
 
-    # LangGraph requires a dict-based state; we wrap our Pydantic model
-    # by converting to/from dict at the graph boundary.
-    # Using dict[str, any] as the native state type for LangGraph compatibility.
-
     graph = StateGraph(dict)
 
-    # --- Wrapper nodes (dict ↔ AgentState conversion) ---
+    # --- Wrapper nodes (dict ↔ AgentState conversion + progress emission) ---
 
     async def _parse_resume(state: dict) -> dict:
+        await _emit(state["job_id"], "parse_resume", "Parsing resume and extracting skills...")
         result = await parse_resume_node(AgentState(**state))
         return result.dict()
 
     async def _search_jobs(state: dict) -> dict:
+        await _emit(state["job_id"], "search_jobs", "Searching job postings...")
         result = await search_jobs_node(AgentState(**state))
         return result.dict()
 
     async def _embed_match(state: dict) -> dict:
+        await _emit(state["job_id"], "embed_match", "Computing semantic match score...")
         result = await embed_match_node(AgentState(**state))
         return result.dict()
 
     async def _generate_report(state: dict) -> dict:
+        await _emit(state["job_id"], "generate_report", "Generating recommendations...")
         result = await generate_report_node(AgentState(**state))
         return result.dict()
 
     async def _rewrite_resume(state: dict) -> dict:
+        await _emit(state["job_id"], "rewrite_resume", "Generating resume rewrite suggestions...")
         result = await rewrite_resume_node(AgentState(**state))
         return result.dict()
 
