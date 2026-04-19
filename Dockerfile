@@ -2,10 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for pdfplumber
+# System deps: pdfplumber + weasyprint (Debian Bookworm package names)
 RUN apt-get update && apt-get install -y \
     libpoppler-cpp-dev \
     poppler-utils \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libgdk-pixbuf-2.0-0 \
+    libffi-dev \
+    fonts-liberation \
+    fontconfig \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

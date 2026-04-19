@@ -16,7 +16,7 @@ from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.models import (
@@ -26,6 +26,7 @@ from app.models import (
     AgentState,
 )
 from app.agent import agent, register_progress_queue, unregister_progress_queue
+from app.pdf_report import generate_pdf
 
 logging.basicConfig(
     level=logging.INFO,
@@ -223,6 +224,45 @@ async def get_results(job_id: str):
         status=JobStatus.COMPLETED,
         resume_profile=job.get("resume_profile"),
         report=job.get("report"),
+    )
+
+
+@app.get("/results/{job_id}/pdf")
+async def get_results_pdf(job_id: str):
+    """
+    Generate and download a PDF report for a completed analysis job.
+
+    Returns a PDF file with match score, skill gaps, recommendations,
+    rewrite suggestions, and top jobs analyzed.
+
+    Example:
+      curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
+    """
+    job = _job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+    if job.get("error"):
+        raise HTTPException(status_code=400, detail="Cannot generate PDF: analysis failed.")
+    if not job.get("report"):
+        raise HTTPException(status_code=400, detail="Analysis not yet completed.")
+
+    results = ResultsResponse(
+        job_id=job_id,
+        status=JobStatus.COMPLETED,
+        resume_profile=job.get("resume_profile"),
+        report=job.get("report"),
+    )
+
+    try:
+        pdf_bytes = generate_pdf(results)
+    except Exception as e:
+        logger.error(f"[{job_id}] PDF generation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=resume-radar-{job_id[:8]}.pdf"},
     )
 
 
