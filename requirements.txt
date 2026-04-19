@@ -20,3 +20,6 @@ pydantic-settings>=2.3.0
 
 # Vector DB — semantic matching
 chromadb>=1.0.0
+
+# PDF report generation
+weasyprint>=62.0
