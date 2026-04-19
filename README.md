@@ -1,6 +1,6 @@
 # 📡 ResumeRadar
 
-> AI-powered resume analyzer. Upload your PDF, get matched against real job postings, surface skill gaps, and get targeted rewrite suggestions for weak bullet points.
+> AI-powered resume analyzer. Upload your PDF, get matched against real job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -61,15 +61,24 @@ your resume.pdf
 # 1. Start the stack
 docker compose up --build
 
-# 2. Analyze a resume
+# 2. Open the UI
+# http://localhost:8000/static/index.html
+
+# 3. Or use the API directly
 curl -X POST http://localhost:8000/analyze \
   -F "file=@resume.pdf" \
   -F "target_role=Data Engineer"
 
 # → {"job_id": "ae200425-...", "status": "processing"}
 
-# 3. Get results (~25-35s)
+# 4. Stream progress in real time
+curl -N http://localhost:8000/progress/ae200425-...
+
+# 5. Get full results
 curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
+
+# 6. Download PDF report
+curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
 ```
 
 **Output:**
@@ -90,16 +99,13 @@ curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
     },
     "recommendations": [
       "Add dbt to your stack — appears in 4/5 top jobs, unlocks $30-50/hr roles",
-      "Highlight Apache Airflow prominently — strong differentiator for data pipeline roles",
-      "Add Terraform — frequent in cloud-native data engineering postings",
-      "AWS/Azure certification validates your cloud skills — high signal for remote roles",
-      "Quantify pipeline impact in your resume (e.g. '90% storage reduction') — stands out in ATS"
+      "Highlight Apache Airflow prominently — strong differentiator for data pipeline roles"
     ],
     "jobs_analyzed": 5,
     "resume_rewrites": [
       {
         "original": "Designed and optimized scalable data pipelines...",
-        "rewrite": "Engineered scalable data pipelines processing 10M+ daily records, improving query performance and schema efficiency to handle large-scale datasets.",
+        "rewrite": "Engineered scalable data pipelines processing 10M+ daily records...",
         "reason": "Original lacked specificity and quantification.",
         "section": "Software Engineer Intern",
         "alignment_note": "Incorporates 'data pipelines' — present in 4/5 top matching jobs.",
@@ -124,7 +130,9 @@ curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
 | Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
 | API | FastAPI + Uvicorn (async, background tasks) |
 | PDF Parsing | pdfplumber |
+| PDF Report | weasyprint |
 | Job Sources | RemoteOK (no auth) + Adzuna (free tier) |
+| Frontend | HTML + vanilla JS (served via FastAPI StaticFiles) |
 | Containerization | Docker + Docker Compose |
 
 ---
@@ -143,7 +151,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The API starts at `http://localhost:8000`. ChromaDB runs as a separate service on port `8001` and persists embeddings across restarts via a named Docker volume.
+- **UI:** `http://localhost:8000/static/index.html`
+- **API docs:** `http://localhost:8000/docs`
+- ChromaDB runs on port `8001` and persists embeddings via a named Docker volume.
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage (free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/)).
 
@@ -162,22 +172,43 @@ Upload a resume PDF and start an analysis job.
 
 Returns `{ job_id, status, message }`.
 
+### `GET /progress/{job_id}`
+
+SSE stream of node-level progress events. Each event is a JSON object:
+
+```
+data: {"step": "parse_resume",    "message": "Parsing resume and extracting skills..."}
+data: {"step": "search_jobs",     "message": "Searching job postings..."}
+data: {"step": "embed_match",     "message": "Computing semantic match score..."}
+data: {"step": "generate_report", "message": "Generating recommendations..."}
+data: {"step": "rewrite_resume",  "message": "Generating resume rewrite suggestions..."}
+data: {"step": "done",            "message": "Analysis complete.", "status": "completed"}
+```
+
+Stream closes automatically after a terminal event (`done` or `error`).
+
 ### `GET /results/{job_id}`
 
-Poll for results. Returns `status: processing` while the agent runs.
-
-Returns the full analysis when `status: completed`:
+Poll for results. Returns `status: processing` while the agent runs, `status: completed` with the full payload when done:
 - `resume_profile` — extracted skills, inferred capabilities, seniority
 - `report.gap_analysis` — match score, strengths, missing skills
 - `report.recommendations` — 5 actionable, market-aware suggestions
 - `report.top_jobs` — the 5 job postings used for analysis
 - `report.resume_rewrites` — targeted rewrites for weak bullets, with market alignment notes
 
+### `GET /results/{job_id}/pdf`
+
+Download a formatted PDF report. Includes match score, skill gaps, recommendations, rewrite suggestions side-by-side, and jobs analyzed.
+
+```bash
+curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
+```
+
 ### `GET /health`
 
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "0.3.0"}
+# {"status": "ok", "service": "resume-radar", "version": "0.4.0"}
 ```
 
 ---
@@ -211,16 +242,11 @@ This is what lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic s
 1. **Segmentation** — extracts bullets and summary from raw PDF text
 2. **Scoring + rewrite** — scores each bullet for market impact (1–10), rewrites those scoring 6 or below
 
-Market anchor: uses `missing_skills` when available; falls back to the union of `required_skills` across top job postings for strong profiles (high match score, empty gaps). This ensures rewrites are always grounded in real market signal rather than generic improvement advice.
+Market anchor: uses `missing_skills` when available; falls back to the union of `required_skills` across top job postings for strong profiles (high match score, empty gaps).
 
 ### Job search
 
-RemoteOK is filtered client-side using a weighted relevance score:
-- Title match: 3 points
-- Tag match: 2 points
-- Description match: 1 point
-
-Jobs below threshold 3 are discarded. Keywords are limited to `target_role` + top 3 priority skills from the resume to avoid over-filtering.
+RemoteOK is filtered client-side using a weighted relevance score: title match (3 pts), tag match (2 pts), description match (1 pt). Jobs below threshold 3 are discarded. Keywords are capped at `target_role` + top 3 priority skills.
 
 ---
 
@@ -229,8 +255,9 @@ Jobs below threshold 3 are discarded. Keywords are limited to `target_role` + to
 ```
 resume-radar/
 ├── app/
-│   ├── main.py              # FastAPI — /analyze, /results/{id}, /health
-│   ├── agent.py             # LangGraph graph definition + compilation
+│   ├── main.py              # FastAPI — /analyze, /progress/{id}, /results/{id}, /results/{id}/pdf
+│   ├── agent.py             # LangGraph graph + SSE progress queue
+│   ├── pdf_report.py        # weasyprint PDF generation
 │   ├── vector_store.py      # ChromaDB client singleton
 │   ├── models.py            # Pydantic models (AgentState, ResumeProfile, Report...)
 │   ├── config.py            # Settings via pydantic-settings + .env
@@ -243,6 +270,8 @@ resume-radar/
 │   └── tools/
 │       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
 │       └── adzuna.py        # Adzuna API client (HTML strip)
+├── static/
+│   └── index.html           # Frontend — upload, SSE progress, results, PDF download
 ├── tests/
 │   └── test_agent.py
 ├── Dockerfile
@@ -259,8 +288,8 @@ resume-radar/
 - [x] v0.1 — MVP: PDF → job search → gap analysis → report
 - [x] v0.2 — Semantic matching (ChromaDB + OpenAI embeddings), HTML sanitization
 - [x] v0.3 — Resume rewrite suggestions: bullet scoring, market-anchored rewrites, `alignment_note`, `quantification_is_estimated`
-- [ ] v0.4 — Course recommendations for identified skill gaps
-- [ ] v1.0 — Rate limiting, Redis job store, optional frontend
+- [x] v0.4 — SSE progress streaming, static frontend, PDF report download
+- [ ] v0.5 — Frontend polish, Redis job store, rate limiting
 
 ---
 
