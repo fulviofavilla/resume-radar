@@ -3,7 +3,7 @@ Basic smoke tests for ResumeRadar.
 Run with: pytest tests/ -v
 """
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.models import AgentState, ResumeProfile, JobPosting, GapAnalysis
 from app.nodes.embed_match import _keyword_gap_analysis
 
@@ -68,17 +68,19 @@ async def test_parse_resume_node_mocked():
         "summary": "Data Engineer with Python and AWS expertise."
     })
 
-    # Minimal valid PDF bytes (pdfplumber will fail, but we mock the text extraction)
     fake_state = AgentState(
         job_id="test-123",
         resume_bytes=b"fake-pdf-bytes",
     )
 
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content=mock_response_content))]
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
     with patch("app.nodes.parse_resume._extract_text_from_pdf", return_value="Python SQL AWS engineer 3 years"):
-        with patch("openai.resources.chat.completions.AsyncCompletions.create") as mock_create:
-            mock_create.return_value = AsyncMock(
-                choices=[AsyncMock(message=AsyncMock(content=mock_response_content))]
-            )
+        with patch("app.nodes.parse_resume.AsyncOpenAI", return_value=mock_client):
             result = await parse_resume_node(fake_state)
 
     assert result.resume_profile is not None
@@ -161,7 +163,7 @@ async def test_rewrite_resume_node_populates_suggestions():
 
     async def _fake_create(**kwargs):
         content = seg_response if "parser" in kwargs["messages"][0]["content"].lower() else rw_response
-        return AsyncMock(choices=[AsyncMock(message=AsyncMock(content=content))])
+        return MagicMock(choices=[MagicMock(message=MagicMock(content=content))])
 
     with patch("openai.resources.chat.completions.AsyncCompletions.create", side_effect=_fake_create):
         result = await rewrite_resume_node(state)
@@ -221,4 +223,3 @@ async def test_rewrite_resume_node_non_blocking_on_failure():
     # Should not raise, should not set error, rewrites stays empty
     assert result.error is None
     assert result.report.resume_rewrites == []
-
