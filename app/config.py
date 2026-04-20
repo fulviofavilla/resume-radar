@@ -1,8 +1,11 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
@@ -18,13 +21,12 @@ class Settings(BaseSettings):
     chroma_port: int = 8000
     chroma_collection_name: str = "job_postings"
 
+    # Redis — job store + rate limiting backend
+    redis_url: str = "redis://localhost:6379"
+
     # Agent
     max_jobs_to_fetch: int = 10
     top_jobs_for_analysis: int = 5
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 @lru_cache
