@@ -128,12 +128,15 @@ curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
 | LLM | OpenAI GPT-4o-mini |
 | Embeddings | OpenAI `text-embedding-3-small` |
 | Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
+| Job Store | Redis 7 (persists results across restarts, 24h TTL) |
 | API | FastAPI + Uvicorn (async, background tasks) |
+| Rate Limiting | slowapi (5 req/hour per IP on `POST /analyze`) |
 | PDF Parsing | pdfplumber |
 | PDF Report | weasyprint |
 | Job Sources | RemoteOK (no auth) + Adzuna (free tier) |
 | Frontend | HTML + vanilla JS (served via FastAPI StaticFiles) |
 | Containerization | Docker + Docker Compose |
+| CI | GitHub Actions (pytest on push and PR) |
 
 ---
 
@@ -154,6 +157,7 @@ docker compose up --build
 - **UI:** `http://localhost:8000/static/index.html`
 - **API docs:** `http://localhost:8000/docs`
 - ChromaDB runs on port `8001` and persists embeddings via a named Docker volume.
+- Redis runs on port `6379` and persists job results via a named Docker volume.
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage (free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/)).
 
@@ -163,7 +167,7 @@ docker compose up --build
 
 ### `POST /analyze`
 
-Upload a resume PDF and start an analysis job.
+Upload a resume PDF and start an analysis job. Rate limited to **5 requests per hour per IP**.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -208,7 +212,7 @@ curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
 
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "0.4.0"}
+# {"status": "ok", "service": "resume-radar", "version": "0.5.0", "redis": "ok"}
 ```
 
 ---
@@ -274,9 +278,13 @@ resume-radar/
 │   └── index.html           # Frontend — upload, SSE progress, results, PDF download
 ├── tests/
 │   └── test_agent.py
+├── .github/
+│   └── workflows/
+│       └── ci.yml           # pytest on push to main and PRs
 ├── Dockerfile
-├── docker-compose.yml       # api + vectordb (ChromaDB)
+├── docker-compose.yml       # api + vectordb (ChromaDB) + redis
 ├── requirements.txt
+├── pytest.ini
 ├── .env.example
 └── README.md
 ```
