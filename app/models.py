@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from enum import Enum
 
@@ -80,6 +80,8 @@ class ResultsResponse(BaseModel):
 
 # LangGraph agent state — the dict that flows through every node
 class AgentState(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     job_id: str
     target_role: Optional[str] = None
     resume_bytes: bytes = b""
@@ -88,6 +90,3 @@ class AgentState(BaseModel):
     gap_analysis: Optional[GapAnalysis] = None
     report: Optional[Report] = None
     error: Optional[str] = None
-
-    class Config:
-        arbitrary_types_allowed = True
