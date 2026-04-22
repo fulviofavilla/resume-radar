@@ -25,7 +25,7 @@ chromadb>=1.0.0
 weasyprint>=62.0
 
 # Job store & rate limiting
-redis[asyncio]>=5.0.0
+redis>=5.0.0
 slowapi>=0.1.9
 
 # Testing
