@@ -275,6 +275,7 @@ resume-radar/
 │       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
 │       └── adzuna.py        # Adzuna API client (HTML strip)
 ├── static/
+│   ├── fonts/               # Self-hosted woff2 (Space Mono, DM Sans)
 │   └── index.html           # Frontend — upload, SSE progress, results, PDF download
 ├── tests/
 │   └── test_agent.py
@@ -297,7 +298,7 @@ resume-radar/
 - [x] v0.2 — Semantic matching (ChromaDB + OpenAI embeddings), HTML sanitization
 - [x] v0.3 — Resume rewrite suggestions: bullet scoring, market-anchored rewrites, `alignment_note`, `quantification_is_estimated`
 - [x] v0.4 — SSE progress streaming, static frontend, PDF report download
-- [ ] v0.5 — Frontend polish, Redis job store, rate limiting
+- [x] v0.5 — Frontend polish, Redis job store, rate limiting
 
 ---
 
