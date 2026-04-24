@@ -4,8 +4,43 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ResumeRadar</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: 'Space Mono';
+      src: url('/static/fonts/fonts_space-mono-v17-latin_space-mono-v17-latin-regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Space Mono';
+      src: url('/static/fonts/fonts_space-mono-v17-latin_space-mono-v17-latin-700.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'DM Sans';
+      src: url('/static/fonts/fonts_dm-sans-v17-latin_dm-sans-v17-latin-300.woff2') format('woff2');
+      font-weight: 300;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'DM Sans';
+      src: url('/static/fonts/fonts_dm-sans-v17-latin_dm-sans-v17-latin-regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'DM Sans';
+      src: url('/static/fonts/fonts_dm-sans-v17-latin_dm-sans-v17-latin-500.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,11 +48,17 @@
       --bg: #0a0a0a;
       --surface: #111111;
       --border: #222222;
-      --accent: #e8ff47;
-      --accent-dim: rgba(232, 255, 71, 0.12);
+      --accent: #4da6ff;
+      --accent-dim: rgba(77, 166, 255, 0.12);
       --text: #f0f0f0;
       --muted: #666;
+      --muted-light: #999;
       --danger: #ff4f4f;
+      --score-weak: #ff4f4f;
+      --score-fair: #ff8c42;
+      --score-good: #4da6ff;
+      --score-great: #3ddc84;
+      --estimated: #6b8fa8;
       --mono: 'Space Mono', monospace;
       --sans: 'DM Sans', sans-serif;
     }
@@ -40,10 +81,24 @@
     /* ── Header ── */
     header {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 14px;
       margin-bottom: 56px;
     }
+    .header-spacer { flex: 1; }
+    .github-link {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    .github-link:hover { color: var(--accent); }
+    .github-link svg { width: 16px; height: 16px; fill: currentColor; }
     .logo {
       font-family: var(--mono);
       font-size: 1.25rem;
@@ -106,6 +161,11 @@
       text-transform: uppercase;
       color: var(--muted);
       margin-bottom: 8px;
+    }
+    .field label .optional {
+      color: var(--muted-light);
+      letter-spacing: 0.06em;
+      font-size: 0.68rem;
     }
     .field input {
       width: 100%;
@@ -233,6 +293,7 @@
       color: var(--muted);
     }
     .pipeline-step.active .step-msg { color: var(--accent); }
+    .pipeline-step.done .step-msg   { color: var(--muted-light); }
 
     /* Spinner */
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -368,11 +429,35 @@
       font-size: 0.62rem;
       padding: 2px 7px;
       border-radius: 2px;
-      background: rgba(255,79,79,0.12);
-      color: var(--danger);
+      background: rgba(107, 143, 168, 0.15);
+      color: var(--estimated);
       letter-spacing: 0.04em;
     }
-    .rewrite-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+    /* Side-by-side rewrites on desktop, stacked on mobile */
+    .rewrite-body {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 0 20px;
+    }
+    .rewrite-col { padding-bottom: 12px; }
+    .rewrite-reason {
+      grid-column: 1 / -1;
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      line-height: 1.5;
+    }
+    @media (max-width: 560px) {
+      .rewrite-body {
+        grid-template-columns: 1fr;
+      }
+      .rewrite-reason { grid-column: 1; }
+    }
+
     .rewrite-col label {
       display: block;
       font-family: var(--mono);
@@ -388,13 +473,6 @@
       color: var(--text);
     }
     .rewrite-col.new p { color: var(--accent); }
-    .rewrite-reason {
-      font-size: 0.78rem;
-      color: var(--muted);
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-      line-height: 1.5;
-    }
     .alignment-note {
       font-size: 0.75rem;
       color: var(--muted);
@@ -439,6 +517,15 @@
 
     /* Divider */
     .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+    /* Fade-in for results sections */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+      animation: fadeUp 0.35s ease both;
+    }
   </style>
 </head>
 <body>
@@ -446,7 +533,14 @@
 
   <header>
     <div class="logo">📡 ResumeRadar</div>
-    <div class="logo-sub">v0.4.0</div>
+    <div class="logo-sub">v0.5.0</div>
+    <div class="header-spacer"></div>
+    <a class="github-link" href="https://github.com/fulviofavilla/resume-radar" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+      </svg>
+      GitHub
+    </a>
   </header>
 
   <!-- Upload form -->
@@ -458,7 +552,7 @@
   </div>
 
   <div class="field">
-    <label for="target-role">Target role <span style="color:var(--border)">(optional)</span></label>
+    <label for="target-role">Target role <span class="optional">(OPTIONAL)</span></label>
     <input type="text" id="target-role" placeholder="e.g. Data Engineer, ML Engineer, Backend Engineer" />
   </div>
 
@@ -480,11 +574,11 @@
 
 <script>
 const STEPS = [
-  { id: 'parse_resume',    label: 'parse_resume',    desc: 'Waiting...' },
-  { id: 'search_jobs',     label: 'search_jobs',     desc: 'Waiting...' },
-  { id: 'embed_match',     label: 'embed_match',     desc: 'Waiting...' },
-  { id: 'generate_report', label: 'generate_report', desc: 'Waiting...' },
-  { id: 'rewrite_resume',  label: 'rewrite_resume',  desc: 'Waiting...' },
+  { id: 'parse_resume',    label: 'parse_resume',    desc: 'Waiting...', done: 'Skills extracted from resume.' },
+  { id: 'search_jobs',     label: 'search_jobs',     desc: 'Waiting...', done: 'Job postings retrieved.' },
+  { id: 'embed_match',     label: 'embed_match',     desc: 'Waiting...', done: 'Semantic match computed.' },
+  { id: 'generate_report', label: 'generate_report', desc: 'Waiting...', done: 'Recommendations generated.' },
+  { id: 'rewrite_resume',  label: 'rewrite_resume',  desc: 'Waiting...', done: 'Rewrite suggestions ready.' },
 ];
 
 // ── DOM refs ──
@@ -534,12 +628,14 @@ function buildPipeline() {
 }
 
 function activateStep(stepId, message) {
-  // Mark previous active as done
+  // Mark previous active as done with its completion message
   document.querySelectorAll('.pipeline-step.active').forEach(el => {
+    const sid = el.id.replace('step-', '');
+    const stepDef = STEPS.find(s => s.id === sid);
     el.classList.remove('active');
     el.classList.add('done');
-    const ind = el.querySelector('.step-indicator');
-    ind.innerHTML = '✓';
+    el.querySelector('.step-indicator').innerHTML = '✓';
+    el.querySelector('.step-msg').textContent = stepDef ? stepDef.done : 'Done.';
   });
   const el = document.getElementById(`step-${stepId}`);
   if (!el) return;
@@ -549,10 +645,13 @@ function activateStep(stepId, message) {
 }
 
 function completeAll() {
-  document.querySelectorAll('.pipeline-step.active').forEach(el => {
+  document.querySelectorAll('.pipeline-step.active, .pipeline-step:not(.done)').forEach(el => {
+    const sid = el.id.replace('step-', '');
+    const stepDef = STEPS.find(s => s.id === sid);
     el.classList.remove('active');
     el.classList.add('done');
     el.querySelector('.step-indicator').innerHTML = '✓';
+    el.querySelector('.step-msg').textContent = stepDef ? stepDef.done : 'Done.';
   });
 }
 
@@ -609,7 +708,6 @@ submitBtn.addEventListener('click', async () => {
   };
   es.onerror = () => {
     es.close();
-    // SSE closed — fall back to polling
     pollResults(jobId);
   };
 });
@@ -652,7 +750,11 @@ function renderResults(data) {
   const scoreInt = Math.round(gaps.match_score * 100);
   const circ = 2 * Math.PI * 30; // r=30
   const offset = circ - (scoreInt / 100) * circ;
-  resultsSec.insertAdjacentHTML('beforeend', `
+  const scoreColor = scoreInt >= 85 ? 'var(--score-great)'
+                   : scoreInt >= 70 ? 'var(--score-good)'
+                   : scoreInt >= 50 ? 'var(--score-fair)'
+                   : 'var(--score-weak)';
+  insertFade(resultsSec, `
     <div class="section-label">Match analysis</div>
     <div class="score-card">
       <div class="score-circle">
@@ -661,9 +763,10 @@ function renderResults(data) {
           <circle class="fill" cx="36" cy="36" r="30"
             stroke-dasharray="${circ}"
             stroke-dashoffset="${circ}"
+            style="stroke: ${scoreColor}"
             id="score-arc"/>
         </svg>
-        <div class="score-number">${scoreInt}%</div>
+        <div class="score-number" style="color: ${scoreColor}">${scoreInt}%</div>
       </div>
       <div class="score-meta">
         <div class="score-title">Semantic match score</div>
@@ -682,7 +785,7 @@ function renderResults(data) {
   });
 
   // Recommendations
-  resultsSec.insertAdjacentHTML('beforeend', `
+  insertFade(resultsSec, `
     <div class="card">
       <div class="card-title">Recommendations</div>
       <ul class="rec-list">
@@ -692,9 +795,9 @@ function renderResults(data) {
 
   // Rewrite suggestions
   if (report.resume_rewrites && report.resume_rewrites.length > 0) {
-    resultsSec.insertAdjacentHTML('beforeend', `<div class="section-label" style="margin-top:32px">Resume rewrites</div>`);
+    insertFade(resultsSec, `<div class="section-label" style="margin-top:32px">Resume rewrites</div>`);
     report.resume_rewrites.forEach(rw => {
-      resultsSec.insertAdjacentHTML('beforeend', `
+      insertFade(resultsSec, `
         <div class="rewrite-item">
           <div class="rewrite-header">
             <span class="rewrite-section-name">${rw.section}</span>
@@ -719,7 +822,7 @@ function renderResults(data) {
   }
 
   // Top jobs
-  resultsSec.insertAdjacentHTML('beforeend', `
+  insertFade(resultsSec, `
     <div class="divider"></div>
     <div class="section-label">Jobs analyzed (${report.jobs_analyzed})</div>
     <div class="card">
@@ -734,6 +837,13 @@ function renderResults(data) {
 }
 
 // ── Helpers ──
+function insertFade(container, html) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'fade-in';
+  wrapper.innerHTML = html;
+  container.appendChild(wrapper);
+}
+
 function showError(msg) {
   errorMsg.style.display = msg ? 'block' : 'none';
   errorMsg.textContent = msg ? `⚠ ${msg}` : '';
