@@ -306,6 +306,7 @@ resume-radar/
 - [x] v0.4 - SSE progress streaming, static frontend, PDF report download
 - [x] v0.5 - Frontend polish, Redis job store, rate limiting
 - [x] v0.6 - PDF report redesign, self-hosted fonts, demo GIF and screenshots
+- [ ] v0.7 - Manual job input: paste a job description directly, skipping the job search step
 
 ---
 
