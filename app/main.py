@@ -18,7 +18,7 @@ from typing import Any, AsyncGenerator
 import redis.asyncio as aioredis
 from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -112,6 +112,11 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/static/index.html")
 
 
 # ---------------------------------------------------------------------------

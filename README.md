@@ -67,7 +67,7 @@ your resume.pdf
 docker compose up --build
 
 # 2. Open the UI
-# http://localhost:8000/static/index.html
+# http://localhost:8000
 
 # 3. Or use the API directly
 curl -X POST http://localhost:8000/analyze \
@@ -159,7 +159,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- **UI:** `http://localhost:8000/static/index.html`
+- **UI:** `http://localhost:8000`
 - **API docs:** `http://localhost:8000/docs`
 - ChromaDB runs on port `8001` and persists embeddings via a named Docker volume.
 - Redis runs on port `6379` and persists job results via a named Docker volume (24h TTL).
