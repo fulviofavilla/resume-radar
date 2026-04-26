@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ResumeRadar",
     description="AI-powered resume analyzer — match your profile against real jobs, surface skill gaps.",
-    version="0.5.0",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -312,6 +312,6 @@ async def health():
     return {
         "status": "ok",
         "service": "resume-radar",
-        "version": "0.5.0",
+        "version": "0.6.0",
         "redis": "ok" if redis_ok else "unreachable",
     }
