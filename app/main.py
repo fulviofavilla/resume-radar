@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ResumeRadar",
     description="AI-powered resume analyzer — match your profile against real jobs, surface skill gaps.",
-    version="0.6.0",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
@@ -111,19 +111,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-@app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/static/index.html")
-
 
 # ---------------------------------------------------------------------------
 # Background worker
 # ---------------------------------------------------------------------------
 
-async def _run_analysis(job_id: str, pdf_bytes: bytes, target_role: str | None) -> None:
+async def _run_analysis(job_id: str, pdf_bytes: bytes, target_role: str | None, job_description: str | None) -> None:
     """Runs the LangGraph agent and writes results to Redis."""
     logger.info(f"[{job_id}] Analysis started")
 
@@ -133,6 +126,7 @@ async def _run_analysis(job_id: str, pdf_bytes: bytes, target_role: str | None) 
     initial_state = AgentState(
         job_id=job_id,
         target_role=target_role,
+        job_description=job_description,
         resume_bytes=pdf_bytes,
     ).dict()
 
@@ -160,7 +154,8 @@ async def analyze(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Resume PDF"),
-    target_role: str | None = Form(default=None, description="Optional target role (e.g. 'Data Engineer')"),
+    target_role: str | None = Form(default=None),
+    job_description: str | None = Form(default=None),
 ):
     """
     Upload a resume PDF and start an analysis job.
@@ -177,7 +172,7 @@ async def analyze(
     job_id = str(uuid.uuid4())
     await _job_set(job_id, {"job_id": job_id, "status": JobStatus.PROCESSING})
 
-    background_tasks.add_task(_run_analysis, job_id, pdf_bytes, target_role)
+    background_tasks.add_task(_run_analysis, job_id, pdf_bytes, target_role, job_description)
 
     return AnalyzeResponse(
         job_id=job_id,
@@ -317,6 +312,10 @@ async def health():
     return {
         "status": "ok",
         "service": "resume-radar",
-        "version": "0.6.0",
+        "version": "0.7.0",
         "redis": "ok" if redis_ok else "unreachable",
     }
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static-assets")
+app.mount("/", StaticFiles(directory="static/dist", html=True), name="frontend")

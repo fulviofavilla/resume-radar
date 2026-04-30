@@ -84,6 +84,7 @@ class AgentState(BaseModel):
 
     job_id: str
     target_role: Optional[str] = None
+    job_description: Optional[str] = None
     resume_bytes: bytes = b""
     resume_profile: Optional[ResumeProfile] = None
     job_postings: list[JobPosting] = []

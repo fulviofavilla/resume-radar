@@ -208,6 +208,21 @@ async def embed_match_node(state: AgentState) -> AgentState:
     if state.error:
         return state
 
+    # Manual job description - synthesize a JobPosting so the rest of the pipeline runs unchanged
+    if state.job_description and not state.job_postings:
+        from app.models import JobPosting
+        state.job_postings = [
+            JobPosting(
+                title="Manual Job Description",
+                company="—",
+                url="",
+                description=state.job_description,
+                required_skills=[],
+                source="manual",
+            )
+        ]
+        logger.info(f"[{state.job_id}] embed_match: using manual job description as single posting")
+
     logger.info(f"[{state.job_id}] embed_match: extracting skills from {len(state.job_postings)} jobs")
 
     # Step 1: Extract real skills from job descriptions in parallel

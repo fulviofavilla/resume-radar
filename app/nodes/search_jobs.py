@@ -48,7 +48,12 @@ async def search_jobs_node(state: AgentState) -> AgentState:
     LangGraph node: searches multiple job APIs in parallel and aggregates results.
     """
     if state.error:
-        return state  # propagate error from previous node
+        return state
+
+    # Skip search if user provided a job description manually
+    if state.job_description:
+        logger.info(f"[{state.job_id}] search_jobs: skipped - manual job description provided")
+        return state
 
     logger.info(f"[{state.job_id}] search_jobs: starting")
     settings = get_settings()
