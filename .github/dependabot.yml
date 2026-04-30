@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      langchain:
+        patterns:
+          - "langchain*"
+          - "langgraph*"
+      fastapi:
+        patterns:
+          - "fastapi"
+          - "uvicorn*"
+          - "python-multipart"
+          - "slowapi"
+      openai:
+        patterns:
+          - "openai"
+      testing:
+        patterns:
+          - "pytest*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
