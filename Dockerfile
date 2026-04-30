@@ -1,8 +1,7 @@
 FROM python:3.11-slim
-
 WORKDIR /app
 
-# System deps: pdfplumber + weasyprint (Debian Bookworm package names)
+# System deps: pdfplumber + weasyprint + Node.js 22
 RUN apt-get update && apt-get install -y \
     libpoppler-cpp-dev \
     poppler-utils \
@@ -13,11 +12,18 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     fonts-liberation \
     fontconfig \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Build frontend
+COPY frontend/ ./frontend/
+RUN cd frontend && npm install && npm run build
 
 # Copy application code
 COPY app/ ./app/
@@ -28,5 +34,4 @@ RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
-
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

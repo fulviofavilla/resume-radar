@@ -29,6 +29,9 @@ Gap analysis:
 
 Top job titles analyzed: {job_titles}
 
+Target job description (when provided by user):
+{job_description}
+
 Return ONLY valid JSON (no markdown, no explanation):
 {{
   "recommendations": [
@@ -80,6 +83,7 @@ async def generate_report_node(state: AgentState) -> AgentState:
                         strengths=", ".join(gaps.strengths),
                         match_score=gaps.match_score,
                         job_titles=", ".join(j.title for j in jobs),
+                        job_description=state.job_description or "N/A",
                     ),
                 }
             ],
@@ -99,11 +103,13 @@ async def generate_report_node(state: AgentState) -> AgentState:
             for strength in gaps.strengths[:2]
         ]
 
+    display_jobs = [j for j in jobs if j.source != "manual"]
+
     state.report = Report(
         gap_analysis=gaps,
         recommendations=recommendations,
         jobs_analyzed=len(jobs),
-        top_jobs=jobs,
+        top_jobs=display_jobs,
     )
 
     logger.info(f"[{state.job_id}] generate_report: done — {len(recommendations)} recommendations")
