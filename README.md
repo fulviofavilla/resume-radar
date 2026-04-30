@@ -3,7 +3,7 @@
 > AI-powered resume analyzer. Upload your PDF, get matched against real remote job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-FF6B35?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-1.0-E91E63?logo=databricks&logoColor=white)](https://trychroma.com)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
@@ -57,6 +57,8 @@ your resume.pdf
                     │ anchored to market     │
                     └────────────────────────┘
 ```
+
+When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting.
 
 ---
 
@@ -139,9 +141,9 @@ curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
 | PDF Parsing | pdfplumber |
 | PDF Report | weasyprint + self-hosted fonts |
 | Job Sources | RemoteOK (no auth) + Adzuna (free tier) |
-| Frontend | HTML + vanilla JS (served via FastAPI StaticFiles) |
+| Frontend | Vite + React (served via FastAPI StaticFiles) |
 | Containerization | Docker + Docker Compose |
-| CI | GitHub Actions (pytest on push and PR) |
+| CI | GitHub Actions (pytest + pip-audit on push and PR) |
 
 ---
 
@@ -178,6 +180,7 @@ Upload a resume PDF and start an analysis job. Rate limited to **5 requests per 
 |---|---|---|---|
 | `file` | PDF (multipart) | yes | Resume file, max 10 MB |
 | `target_role` | string (form) | no | Focus the job search (e.g. `"Data Engineer"`) |
+| `job_description` | string (form) | no | Paste a job description directly, skipping job search |
 
 Returns `{ job_id, status, message }`.
 
@@ -194,7 +197,7 @@ data: {"step": "rewrite_resume",  "message": "Generating resume rewrite suggesti
 data: {"step": "done",            "message": "Analysis complete.", "status": "completed"}
 ```
 
-Stream closes automatically after a terminal event (`done` or `error`).
+Stream closes automatically after a terminal event (`done` or `error`). When `job_description` is provided, `search_jobs` is skipped and the stream will not emit that step.
 
 ### `GET /results/{job_id}`
 
@@ -202,7 +205,7 @@ Poll for results. Returns `status: processing` while the agent runs, `status: co
 - `resume_profile` - extracted skills, inferred capabilities, seniority
 - `report.gap_analysis` - match score, strengths, missing skills
 - `report.recommendations` - 5 actionable, market-aware suggestions
-- `report.top_jobs` - the 5 job postings used for analysis
+- `report.top_jobs` - job postings used for analysis (empty when using manual job description)
 - `report.resume_rewrites` - targeted rewrites for weak bullets, with market alignment notes
 
 ### `GET /results/{job_id}/pdf`
@@ -217,7 +220,7 @@ curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
 
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "0.6.0", "redis": "ok"}
+# {"status": "ok", "service": "resume-radar", "version": "0.7.0", "redis": "ok"}
 ```
 
 ---
@@ -233,7 +236,7 @@ parse_resume -> search_jobs -> embed_match -> generate_report -> rewrite_resume
      +---------------+---------------+---- END (early exit)
 ```
 
-`rewrite_resume` is connected with a plain edge (no conditional) - it handles its own failures silently and never blocks the rest of the pipeline.
+`search_jobs` is skipped when `job_description` is provided - `embed_match` synthesizes a posting from the input directly. `rewrite_resume` is connected with a plain edge (no conditional) - it handles its own failures silently and never blocks the rest of the pipeline.
 
 ### Semantic matching
 
@@ -279,15 +282,23 @@ resume-radar/
 │   └── tools/
 │       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
 │       └── adzuna.py        # Adzuna API client (HTML strip)
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx          # Root component
+│   │   ├── hooks/
+│   │   │   └── useAnalysis.js  # State, SSE streaming, polling
+│   │   └── components/      # Header, UploadZone, Pipeline, ScoreCard, etc.
+│   └── vite.config.js
 ├── docs/                    # Demo GIF
 ├── static/
 │   ├── fonts/               # Self-hosted woff2 (Space Mono, DM Sans)
-│   └── index.html           # Frontend - upload, SSE progress, results, PDF download
+│   └── dist/                # Vite build output (generated)
 ├── tests/
 │   └── test_agent.py
 ├── .github/
+│   ├── dependabot.yml       # Weekly dependency updates (pip + Actions)
 │   └── workflows/
-│       └── ci.yml           # pytest on push to main and PRs
+│       └── ci.yml           # pytest + pip-audit on push to main and PRs
 ├── Dockerfile
 ├── docker-compose.yml       # api + vectordb (ChromaDB) + redis
 ├── requirements.txt
@@ -305,8 +316,8 @@ resume-radar/
 - [x] v0.3 - Resume rewrite suggestions: bullet scoring, market-anchored rewrites, alignment notes
 - [x] v0.4 - SSE progress streaming, static frontend, PDF report download
 - [x] v0.5 - Frontend polish, Redis job store, rate limiting
-- [x] v0.6 - PDF report redesign, self-hosted fonts, demo GIF and screenshots
-- [ ] v0.7 - Manual job input: paste a job description directly, skipping the job search step
+- [x] v0.6 - PDF report redesign, self-hosted fonts, demo GIF
+- [x] v0.7 - Frontend migrated to Vite + React, manual job description input
 
 ---
 
