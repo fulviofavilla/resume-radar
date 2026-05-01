@@ -135,7 +135,7 @@ curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
 | LLM | OpenAI (default: `gpt-4o-mini`, configurable via `OPENAI_MODEL`) |
 | Embeddings | OpenAI (default: `text-embedding-3-small`, configurable via `OPENAI_EMBEDDING_MODEL`) |
 | Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
-| Job Store | Redis 7 (persists results across restarts, 24h TTL) |
+| Job Store | Redis 7 (persists results across restarts, 1h TTL) |
 | API | FastAPI + Uvicorn (async, background tasks) |
 | Rate Limiting | slowapi (5 req/hour per IP on `POST /analyze`) |
 | PDF Parsing | pdfplumber |
@@ -164,7 +164,7 @@ docker compose up --build
 - **UI:** `http://localhost:8000`
 - **API docs:** `http://localhost:8000/docs`
 - ChromaDB runs on port `8001` and persists embeddings via a named Docker volume.
-- Redis runs on port `6379` and persists job results via a named Docker volume (24h TTL).
+- Redis runs on port `6379` and persists job results via a named Docker volume (1h TTL).
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage - free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/).
 

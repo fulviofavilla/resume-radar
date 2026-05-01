@@ -11,7 +11,7 @@ export default function ErrorMessage({ message }) {
       fontSize: '0.8rem',
       color: 'var(--danger)',
     }}>
-      ⚠ {message}
+      {message}
     </div>
   )
 }

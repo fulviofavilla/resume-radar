@@ -1,28 +1,30 @@
 """
-ResumeRadar — FastAPI application.
+ResumeRadar - FastAPI application.
 
 Endpoints:
-  POST /analyze              — upload PDF, start analysis job (async)
-  GET  /results/{job_id}     — poll for results
-  GET  /progress/{job_id}    — SSE stream of node-level progress events
-  GET  /results/{job_id}/pdf — download PDF report
-  GET  /health               — health check
+  POST /analyze              - upload PDF, start analysis job (async)
+  GET  /results/{job_id}     - poll for results
+  GET  /progress/{job_id}    - SSE stream of node-level progress events
+  GET  /results/{job_id}/pdf - download PDF report
+  GET  /health               - health check
 """
 import asyncio
 import json
 import uuid
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response, RedirectResponse
+from fastapi.responses import StreamingResponse, Response, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.types import Scope
 
 from app.models import (
     AnalyzeResponse,
@@ -51,7 +53,7 @@ limiter = Limiter(key_func=get_remote_address)
 # ---------------------------------------------------------------------------
 
 _redis: aioredis.Redis | None = None
-_JOB_TTL = 60 * 60 * 24  # 24 hours
+_JOB_TTL = 60 * 60  # 1 hour
 
 
 async def _get_redis() -> aioredis.Redis:
@@ -79,15 +81,28 @@ async def _job_get(job_id: str) -> dict[str, Any] | None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("ResumeRadar starting up 📡")
-    # Eagerly connect and verify Redis is reachable
+    logger.info("ResumeRadar starting up")
     r = await _get_redis()
     await r.ping()
-    logger.info("Redis connection verified ✅")
+    logger.info("Redis connection verified")
     yield
     if _redis:
         await _redis.aclose()
     logger.info("ResumeRadar shutting down")
+
+
+# ---------------------------------------------------------------------------
+# SPA static file handler
+# Serves static/dist/ and falls back to index.html for unknown paths,
+# enabling client-side routing without a separate catch-all route.
+# ---------------------------------------------------------------------------
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: Scope):
+        try:
+            return await super().get_response(path, scope)
+        except Exception:
+            return await super().get_response("index.html", scope)
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +111,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ResumeRadar",
-    description="AI-powered resume analyzer — match your profile against real jobs, surface skill gaps.",
+    description="AI-powered resume analyzer - match your profile against real jobs, surface skill gaps.",
     version="0.7.0",
     lifespan=lifespan,
 )
@@ -184,7 +199,7 @@ async def analyze(
 @app.get("/progress/{job_id}")
 async def progress(job_id: str):
     """
-    SSE endpoint — streams node-level progress events as the agent runs.
+    SSE endpoint - streams node-level progress events as the agent runs.
 
     Each event is a JSON object:
       {"step": "<node_name>", "message": "<human readable>"}
@@ -202,7 +217,6 @@ async def progress(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
 
-    # If the job already completed before the client connected, return immediately
     if job.get("report") or job.get("error"):
         status = "failed" if job.get("error") else "completed"
         msg = job.get("error") or "Analysis already completed."
@@ -213,7 +227,6 @@ async def progress(job_id: str):
         return StreamingResponse(_already_done(), media_type="text/event-stream")
 
     async def _stream_events() -> AsyncGenerator[str, None]:
-        # Poll until the background task registers the queue (tiny race window)
         for _ in range(20):
             from app.agent import _progress_queues
             if job_id in _progress_queues:
@@ -318,4 +331,4 @@ async def health():
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static-assets")
-app.mount("/", StaticFiles(directory="static/dist", html=True), name="frontend")
+app.mount("/", SPAStaticFiles(directory="static/dist", html=True), name="frontend")
