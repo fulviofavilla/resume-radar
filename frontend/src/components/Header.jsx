@@ -4,7 +4,7 @@ const GitHubIcon = () => (
   </svg>
 )
 
-export default function Header({ version = 'v0.7.0' }) {
+export default function Header({ version = 'v1.0.0' }) {
   return (
     <header style={{
       display: 'flex',

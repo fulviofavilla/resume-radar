@@ -1,6 +1,6 @@
 # ResumeRadar
 
-> AI-powered resume analyzer. Upload your PDF, get matched against real remote job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
+> AI-powered resume analyzer for tech roles. Upload your PDF, get matched against real remote job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -59,6 +59,8 @@ your resume.pdf
 ```
 
 When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting.
+
+> **Scope:** ResumeRadar is currently focused on tech and software roles. Job search and skill matching are tuned for this context. Support for other domains may be added in future versions.
 
 ---
 
@@ -132,8 +134,8 @@ curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
 | Layer | Tech |
 |---|---|
 | Agent Orchestration | LangGraph (stateful 5-node graph) |
-| LLM | OpenAI (default: `gpt-4o-mini`, configurable via `OPENAI_MODEL`) |
-| Embeddings | OpenAI (default: `text-embedding-3-small`, configurable via `OPENAI_EMBEDDING_MODEL`) |
+| LLM | OpenAI-compatible API (default: `gpt-4o-mini`, configurable via `OPENAI_MODEL`) |
+| Embeddings | OpenAI-compatible API (default: `text-embedding-3-small`, configurable via `OPENAI_EMBEDDING_MODEL`) |
 | Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
 | Job Store | Redis 7 (persists results across restarts, 1h TTL) |
 | API | FastAPI + Uvicorn (async, background tasks) |
@@ -163,10 +165,18 @@ docker compose up --build
 
 - **UI:** `http://localhost:8000`
 - **API docs:** `http://localhost:8000/docs`
-- ChromaDB runs on port `8001` and persists embeddings via a named Docker volume.
-- Redis runs on port `6379` and persists job results via a named Docker volume (1h TTL).
+- ChromaDB and Redis run as internal services - no ports exposed on the host.
+- Analysis results are stored in Redis with a 1h TTL.
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage - free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/).
+
+**Using a local or alternative LLM:** The LLM is configurable via `OPENAI_MODEL` and
+`OPENAI_BASE_URL` in `.env` - any OpenAI-compatible endpoint (e.g. Ollama, LM Studio) works
+for the LLM step without code changes.
+
+Embeddings are separately configurable via `OPENAI_EMBEDDING_MODEL`. Swapping the embedding
+model requires matching the vector dimension expected by ChromaDB - if you change it, clear
+the ChromaDB volume first (`docker compose down -v`) to avoid dimension mismatch errors.
 
 ---
 
@@ -220,7 +230,7 @@ curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
 
 ```bash
 curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "0.7.0", "redis": "ok"}
+# {"status": "ok", "service": "resume-radar", "version": "1.0.0", "redis": "ok"}
 ```
 
 ---
@@ -318,6 +328,7 @@ resume-radar/
 - [x] v0.5 - Frontend polish, Redis job store, rate limiting
 - [x] v0.6 - PDF report redesign, self-hosted fonts, demo GIF
 - [x] v0.7 - Frontend migrated to Vite + React, manual job description input
+- [x] v1.0 - Open source release: internal docker network, 1h TTL, Ollama-compatible API support
 
 ---
 

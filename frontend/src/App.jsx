@@ -49,7 +49,7 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 40px' }}>
-      <Header version="v0.7.0" />
+      <Header version="v1.0.0" />
 
       <UploadZone file={file} onFile={setFile} />
 

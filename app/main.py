@@ -12,14 +12,13 @@ import asyncio
 import json
 import uuid
 import logging
-import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, Response, RedirectResponse, FileResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -111,8 +110,8 @@ class SPAStaticFiles(StaticFiles):
 
 app = FastAPI(
     title="ResumeRadar",
-    description="AI-powered resume analyzer - match your profile against real jobs, surface skill gaps.",
-    version="0.7.0",
+    description="AI-powered resume analyzer for tech roles - match your profile against real jobs, surface skill gaps.",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -325,7 +324,7 @@ async def health():
     return {
         "status": "ok",
         "service": "resume-radar",
-        "version": "0.7.0",
+        "version": "1.0.0",
         "redis": "ok" if redis_ok else "unreachable",
     }
 
