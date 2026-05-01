@@ -19,13 +19,11 @@ services:
 
   vectordb:
     image: chromadb/chroma:1.0.0
-    ports:
-      - "8001:8000"
     volumes:
       - chroma_data:/data
     restart: unless-stopped
     healthcheck:
-      # ChromaDB slim image has no curl — use bash /dev/tcp instead
+      # ChromaDB slim image has no curl - use bash /dev/tcp instead
       test: ["CMD", "/bin/bash", "-c", "</dev/tcp/localhost/8000"]
       interval: 10s
       timeout: 5s
@@ -34,8 +32,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped

@@ -12,6 +12,7 @@ import Recommendations from './components/Recommendations'
 import RewriteCards from './components/RewriteCards'
 import JobList from './components/JobList'
 import ErrorMessage from './components/ErrorMessage'
+import Footer from './components/Footer'
 
 const isProcessing = (status) =>
   status === STATUS.UPLOADING || status === STATUS.PROCESSING
@@ -47,8 +48,8 @@ export default function App() {
   )
 
   return (
-    <div style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 120px' }}>
-      <Header version="v0.7.0" />
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '60px 24px 40px' }}>
+      <Header version="v1.0.0" />
 
       <UploadZone file={file} onFile={setFile} />
 
@@ -86,6 +87,8 @@ export default function App() {
           )}
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }

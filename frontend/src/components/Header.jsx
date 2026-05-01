@@ -4,7 +4,7 @@ const GitHubIcon = () => (
   </svg>
 )
 
-export default function Header({ version = 'v0.7.0' }) {
+export default function Header({ version = 'v1.0.0' }) {
   return (
     <header style={{
       display: 'flex',
@@ -13,7 +13,7 @@ export default function Header({ version = 'v0.7.0' }) {
       marginBottom: 56,
     }}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--accent)' }}>
-        📡 ResumeRadar
+        ResumeRadar
       </div>
       <div style={{ fontFamily: 'var(--mono)', fontSize: '0.8rem', color: 'var(--muted)', letterSpacing: '0.04em' }}>
         {version}
