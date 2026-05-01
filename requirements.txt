@@ -27,7 +27,7 @@ chromadb>=1.0.0
 weasyprint>=68.0
 
 # Job store & rate limiting
-redis>=5.0.0
+redis>=7.4.0
 slowapi>=0.1.9
 
 # Testing
