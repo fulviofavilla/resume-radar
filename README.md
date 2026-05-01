@@ -58,9 +58,9 @@ your resume.pdf
                     └────────────────────────┘
 ```
 
-When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting.
+When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting. Use this mode to analyze your resume against a specific job before applying.
 
-> **Scope:** ResumeRadar is currently focused on tech and software roles. Job search and skill matching are tuned for this context. Support for other domains may be added in future versions.
+> **Scope:** ResumeRadar is currently focused on tech roles. Job search and skill matching are tuned for this context. Support for other domains may be added in future versions.
 
 ---
 
