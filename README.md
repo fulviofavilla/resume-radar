@@ -58,94 +58,9 @@ your resume.pdf
                     └────────────────────────┘
 ```
 
-When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting. Use this mode to analyze your resume against a specific job before applying.
+When a job description is pasted manually, `search_jobs` is skipped and the pipeline runs directly against that single posting.
 
-> **Scope:** ResumeRadar is currently focused on tech roles. Job search and skill matching are tuned for this context. Support for other domains may be added in future versions.
-
----
-
-## Demo
-
-```bash
-# 1. Start the stack
-docker compose up --build
-
-# 2. Open the UI
-# http://localhost:8000
-
-# 3. Or use the API directly
-curl -X POST http://localhost:8000/analyze \
-  -F "file=@resume.pdf" \
-  -F "target_role=Data Engineer"
-
-# -> {"job_id": "ae200425-...", "status": "processing"}
-
-# 4. Stream progress in real time
-curl -N http://localhost:8000/progress/ae200425-...
-
-# 5. Get full results
-curl http://localhost:8000/results/ae200425-... | python3 -m json.tool
-
-# 6. Download PDF report
-curl http://localhost:8000/results/ae200425-.../pdf -o report.pdf
-```
-
-**Output:**
-```json
-{
-  "status": "completed",
-  "resume_profile": {
-    "skills": ["Python", "SQL", "AWS", "Apache Airflow", "Docker", "PySpark"],
-    "inferred_skills": ["ETL pipelines", "data governance", "CI/CD", "pipeline automation"],
-    "seniority": "mid",
-    "years_of_experience": 2
-  },
-  "report": {
-    "gap_analysis": {
-      "match_score": 0.81,
-      "strengths": ["Python", "SQL", "AWS", "Azure", "Docker", "data engineering"],
-      "missing_skills": ["dbt", "Kafka"]
-    },
-    "recommendations": [
-      "Add dbt to your stack - appears in 4/5 top jobs, unlocks $30-50/hr roles",
-      "Highlight Apache Airflow prominently - strong differentiator for data pipeline roles"
-    ],
-    "jobs_analyzed": 5,
-    "resume_rewrites": [
-      {
-        "original": "Designed and optimized scalable data pipelines...",
-        "rewrite": "Engineered scalable data pipelines processing 10M+ daily records...",
-        "reason": "Original lacked specificity and quantification.",
-        "section": "Software Engineer Intern",
-        "alignment_note": "Incorporates 'data pipelines' - present in 4/5 top matching jobs.",
-        "quantification_is_estimated": true
-      }
-    ]
-  }
-}
-```
-
-> **Note on `quantification_is_estimated`:** when `true`, the rewrite introduced numeric metrics not present in the original bullet. These are suggested placeholders - replace them with your real numbers before updating your resume.
-
----
-
-## Stack
-
-| Layer | Tech |
-|---|---|
-| Agent Orchestration | LangGraph (stateful 5-node graph) |
-| LLM | OpenAI-compatible API (default: `gpt-4o-mini`, configurable via `OPENAI_MODEL`) |
-| Embeddings | OpenAI-compatible API (default: `text-embedding-3-small`, configurable via `OPENAI_EMBEDDING_MODEL`) |
-| Vector DB | ChromaDB 1.0 (Docker service, cosine similarity) |
-| Job Store | Redis 7 (persists results across restarts, 1h TTL) |
-| API | FastAPI + Uvicorn (async, background tasks) |
-| Rate Limiting | slowapi (5 req/hour per IP on `POST /analyze`) |
-| PDF Parsing | pdfplumber |
-| PDF Report | weasyprint + self-hosted fonts |
-| Job Sources | RemoteOK (no auth) + Adzuna (free tier) |
-| Frontend | Vite + React (served via FastAPI StaticFiles) |
-| Containerization | Docker + Docker Compose |
-| CI | GitHub Actions (pytest + pip-audit on push and PR) |
+> **Scope:** ResumeRadar is focused on tech roles. Job search and skill matching are tuned for this context.
 
 ---
 
@@ -165,110 +80,55 @@ docker compose up --build
 
 - **UI:** `http://localhost:8000`
 - **API docs:** `http://localhost:8000/docs`
-- ChromaDB and Redis run as internal services - no ports exposed on the host.
-- Analysis results are stored in Redis with a 1h TTL.
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage - free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/).
 
-**Using a local or alternative LLM:** The LLM is configurable via `OPENAI_MODEL` and
-`OPENAI_BASE_URL` in `.env` - any OpenAI-compatible endpoint (e.g. Ollama, LM Studio) works
-for the LLM step without code changes.
-
-Embeddings are separately configurable via `OPENAI_EMBEDDING_MODEL`. Swapping the embedding
-model requires matching the vector dimension expected by ChromaDB - if you change it, clear
-the ChromaDB volume first (`docker compose down -v`) to avoid dimension mismatch errors.
+**Using a local LLM:** Set `OPENAI_BASE_URL` and `OPENAI_MODEL` in `.env` to point at any OpenAI-compatible endpoint (Ollama, LM Studio) - no code changes needed. If you swap `OPENAI_EMBEDDING_MODEL`, run `docker compose down -v` first to clear the ChromaDB volume and avoid dimension mismatch errors.
 
 ---
 
-## API Reference
+## Output
 
-### `POST /analyze`
-
-Upload a resume PDF and start an analysis job. Rate limited to **5 requests per hour per IP**.
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `file` | PDF (multipart) | yes | Resume file, max 10 MB |
-| `target_role` | string (form) | no | Focus the job search (e.g. `"Data Engineer"`) |
-| `job_description` | string (form) | no | Paste a job description directly, skipping job search |
-
-Returns `{ job_id, status, message }`.
-
-### `GET /progress/{job_id}`
-
-SSE stream of node-level progress events. Each event is a JSON object:
-
-```
-data: {"step": "parse_resume",    "message": "Parsing resume and extracting skills..."}
-data: {"step": "search_jobs",     "message": "Searching job postings..."}
-data: {"step": "embed_match",     "message": "Computing semantic match score..."}
-data: {"step": "generate_report", "message": "Generating recommendations..."}
-data: {"step": "rewrite_resume",  "message": "Generating resume rewrite suggestions..."}
-data: {"step": "done",            "message": "Analysis complete.", "status": "completed"}
-```
-
-Stream closes automatically after a terminal event (`done` or `error`). When `job_description` is provided, `search_jobs` is skipped and the stream will not emit that step.
-
-### `GET /results/{job_id}`
-
-Poll for results. Returns `status: processing` while the agent runs, `status: completed` with the full payload when done:
-- `resume_profile` - extracted skills, inferred capabilities, seniority
-- `report.gap_analysis` - match score, strengths, missing skills
-- `report.recommendations` - 5 actionable, market-aware suggestions
-- `report.top_jobs` - job postings used for analysis (empty when using manual job description)
-- `report.resume_rewrites` - targeted rewrites for weak bullets, with market alignment notes
-
-### `GET /results/{job_id}/pdf`
-
-Download a formatted PDF report. Includes match score, skill gaps, recommendations, rewrite suggestions side-by-side, and jobs analyzed.
-
-```bash
-curl http://localhost:8000/results/<job_id>/pdf -o report.pdf
+```json
+{
+  "status": "completed",
+  "resume_profile": {
+    "skills": ["Python", "SQL", "AWS", "Apache Airflow", "Docker", "PySpark"],
+    "inferred_skills": ["ETL pipelines", "data governance", "CI/CD"],
+    "seniority": "mid",
+    "years_of_experience": 2
+  },
+  "report": {
+    "gap_analysis": {
+      "match_score": 0.81,
+      "strengths": ["Python", "SQL", "AWS", "Docker"],
+      "missing_skills": ["dbt", "Kafka"]
+    },
+    "recommendations": [
+      "Add dbt to your stack - appears in 4/5 top jobs, unlocks $30-50/hr roles"
+    ],
+    "resume_rewrites": [
+      {
+        "original": "Designed and optimized scalable data pipelines...",
+        "rewrite": "Engineered scalable data pipelines processing 10M+ daily records...",
+        "reason": "Original lacked specificity and quantification.",
+        "alignment_note": "Incorporates 'data pipelines' - present in 4/5 top matching jobs.",
+        "quantification_is_estimated": true
+      }
+    ]
+  }
+}
 ```
 
-### `GET /health`
-
-```bash
-curl http://localhost:8000/health
-# {"status": "ok", "service": "resume-radar", "version": "1.0.0", "redis": "ok"}
-```
+> When `quantification_is_estimated` is `true`, the rewrite introduced numeric metrics not present in the original. Replace them with your real numbers before updating your resume.
 
 ---
 
 ## Architecture
 
-### Agent graph
+`embed_match` uses a two-pass approach: LLM extraction to pull real required skills from job descriptions (not noisy job board tags), then OpenAI embeddings + ChromaDB cosine similarity. This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity) - skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap. Falls back to keyword gap analysis if ChromaDB is unreachable.
 
-```
-parse_resume -> search_jobs -> embed_match -> generate_report -> rewrite_resume
-     |               |               |               |
-  error?          error?          error?           END (on error)
-     +---------------+---------------+---- END (early exit)
-```
-
-`search_jobs` is skipped when `job_description` is provided - `embed_match` synthesizes a posting from the input directly. `rewrite_resume` is connected with a plain edge (no conditional) - it handles its own failures silently and never blocks the rest of the pipeline.
-
-### Semantic matching
-
-`embed_match` uses a two-pass approach:
-1. **LLM extraction** - calls the configured model in parallel on each job description to extract real required skills (not noisy job board tags)
-2. **Embedding + cosine similarity** - embeds both resume skills and job skills, stores in ChromaDB, queries for semantic proximity
-
-This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity). Skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap.
-
-**Fallback:** if ChromaDB is unreachable, `embed_match` automatically falls back to keyword gap analysis - the service stays functional.
-
-### Resume rewrite
-
-`rewrite_resume` runs two LLM calls in sequence:
-1. **Segmentation** - extracts bullets and summary from raw PDF text
-2. **Scoring + rewrite** - scores each bullet for market impact (1-10), rewrites those scoring 6 or below
-
-Market anchor: uses `missing_skills` when available; falls back to the union of `required_skills` across top job postings for strong profiles (high match score, empty gaps).
-
-### Job search
-
-RemoteOK is filtered client-side using a weighted relevance score: title match (3 pts), tag match (2 pts), description match (1 pt). Jobs below threshold 3 are discarded. Keywords are capped at `target_role` + top 3 priority skills.
+`rewrite_resume` scores each bullet for market impact (1-10) and rewrites those scoring 6 or below, anchored to `missing_skills` or the union of required skills across top jobs for strong profiles.
 
 ---
 
@@ -277,44 +137,39 @@ RemoteOK is filtered client-side using a weighted relevance score: title match (
 ```
 resume-radar/
 ├── app/
-│   ├── main.py              # FastAPI - /analyze, /progress/{id}, /results/{id}, /results/{id}/pdf
+│   ├── main.py              # FastAPI endpoints
 │   ├── agent.py             # LangGraph graph + SSE progress queue
 │   ├── pdf_report.py        # weasyprint PDF generation
 │   ├── vector_store.py      # ChromaDB client singleton
-│   ├── models.py            # Pydantic models (AgentState, ResumeProfile, Report...)
-│   ├── config.py            # Settings via pydantic-settings + .env
+│   ├── models.py            # Pydantic models
+│   ├── config.py            # pydantic-settings + .env
 │   ├── nodes/
-│   │   ├── parse_resume.py     # PDF -> text -> LLM -> ResumeProfile + inferred skills
-│   │   ├── search_jobs.py      # Parallel job search (RemoteOK + Adzuna)
-│   │   ├── embed_match.py      # OpenAI embeddings + ChromaDB gap analysis
-│   │   ├── generate_report.py  # LLM recommendations
-│   │   └── rewrite_resume.py   # LLM bullet scoring + targeted rewrites
+│   │   ├── parse_resume.py
+│   │   ├── search_jobs.py
+│   │   ├── embed_match.py
+│   │   ├── generate_report.py
+│   │   └── rewrite_resume.py
 │   └── tools/
-│       ├── remoteok.py      # RemoteOK API client (weighted scoring, HTML strip)
-│       └── adzuna.py        # Adzuna API client (HTML strip)
+│       ├── remoteok.py
+│       └── adzuna.py
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx          # Root component
-│   │   ├── hooks/
-│   │   │   └── useAnalysis.js  # State, SSE streaming, polling
-│   │   └── components/      # Header, UploadZone, Pipeline, ScoreCard, etc.
-│   └── vite.config.js
-├── docs/                    # Demo GIF
-├── static/
-│   ├── fonts/               # Self-hosted woff2 (Space Mono, DM Sans)
-│   └── dist/                # Vite build output (generated)
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.jsx
+│       ├── main.jsx
+│       ├── hooks/useAnalysis.js
+│       └── components/
 ├── tests/
 │   └── test_agent.py
 ├── .github/
-│   ├── dependabot.yml       # Weekly dependency updates (pip + Actions)
-│   └── workflows/
-│       └── ci.yml           # pytest + pip-audit on push to main and PRs
+│   ├── dependabot.yml
+│   └── workflows/ci.yml
 ├── Dockerfile
-├── docker-compose.yml       # api + vectordb (ChromaDB) + redis
+├── docker-compose.yml
 ├── requirements.txt
-├── pytest.ini
-├── .env.example
-└── README.md
+└── .env.example
 ```
 
 ---
@@ -322,13 +177,13 @@ resume-radar/
 ## Roadmap
 
 - [x] v0.1 - MVP: PDF -> job search -> gap analysis -> report
-- [x] v0.2 - Semantic matching (ChromaDB + OpenAI embeddings), HTML sanitization
-- [x] v0.3 - Resume rewrite suggestions: bullet scoring, market-anchored rewrites, alignment notes
+- [x] v0.2 - Semantic matching (ChromaDB + OpenAI embeddings)
+- [x] v0.3 - Resume rewrite suggestions: bullet scoring, market-anchored rewrites
 - [x] v0.4 - SSE progress streaming, static frontend, PDF report download
-- [x] v0.5 - Frontend polish, Redis job store, rate limiting
-- [x] v0.6 - PDF report redesign, self-hosted fonts, demo GIF
-- [x] v0.7 - Frontend migrated to Vite + React, manual job description input
-- [x] v1.0 - Open source release: internal docker network, 1h TTL, Ollama-compatible API support
+- [x] v0.5 - Redis job store, rate limiting
+- [x] v0.6 - PDF report redesign, self-hosted fonts
+- [x] v0.7 - Vite + React frontend, manual job description input
+- [x] v1.0 - Open source release: internal docker network, 1h TTL, Ollama support
 
 ---
 
