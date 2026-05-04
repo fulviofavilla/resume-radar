@@ -24,7 +24,7 @@ pydantic-settings>=2.3.0
 chromadb>=1.0.0
 
 # PDF report generation
-weasyprint>=68.0
+weasyprint>=68.1
 
 # Job store & rate limiting
 redis>=7.4.0
