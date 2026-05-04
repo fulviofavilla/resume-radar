@@ -11,7 +11,7 @@ langchain-core>=1.3.2
 
 # PDF parsing
 pdfplumber>=0.11.9
-pdfminer-six>=20251230
+pdfminer-six>=20260107
 
 # HTTP client (for job APIs)
 httpx>=0.28.1
