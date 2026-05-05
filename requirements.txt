@@ -2,7 +2,6 @@
 fastapi>=0.136.1
 uvicorn[standard]>=0.46.0
 python-multipart>=0.0.27
-starlette>=0.47.2
 
 # LLM & Agent
 openai>=2.33.0
@@ -17,14 +16,14 @@ pdfminer-six>=20251230
 httpx>=0.28.1
 
 # Config
-pydantic>=2.7.0
-pydantic-settings>=2.3.0
+pydantic>=2.13.3
+pydantic-settings>=2.14.0
 
 # Vector DB — semantic matching
 chromadb>=1.0.0
 
 # PDF report generation
-weasyprint>=68.0
+weasyprint>=68.1
 
 # Job store & rate limiting
 redis>=7.4.0
