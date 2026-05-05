@@ -2,7 +2,6 @@
 fastapi>=0.136.1
 uvicorn[standard]>=0.46.0
 python-multipart>=0.0.27
-starlette>=1.0.0
 
 # LLM & Agent
 openai>=2.33.0
@@ -17,7 +16,7 @@ pdfminer-six>=20251230
 httpx>=0.28.1
 
 # Config
-pydantic>=2.7.0
+pydantic>=2.13.3
 pydantic-settings>=2.14.0
 
 # Vector DB — semantic matching
