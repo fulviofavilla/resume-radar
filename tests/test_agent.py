@@ -165,7 +165,10 @@ async def test_rewrite_resume_node_populates_suggestions():
         content = seg_response if "parser" in kwargs["messages"][0]["content"].lower() else rw_response
         return MagicMock(choices=[MagicMock(message=MagicMock(content=content))])
 
-    with patch("openai.resources.chat.completions.AsyncCompletions.create", side_effect=_fake_create):
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(side_effect=_fake_create)
+
+    with patch("app.nodes.rewrite_resume.AsyncOpenAI", return_value=mock_client):
         result = await rewrite_resume_node(state)
 
     assert result.report is not None
@@ -217,7 +220,10 @@ async def test_rewrite_resume_node_non_blocking_on_failure():
 
     state = _make_state_with_report()
 
-    with patch("openai.resources.chat.completions.AsyncCompletions.create", side_effect=Exception("API down")):
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(side_effect=Exception("API down"))
+
+    with patch("app.nodes.rewrite_resume.AsyncOpenAI", return_value=mock_client):
         result = await rewrite_resume_node(state)
 
     # Should not raise, should not set error, rewrites stays empty
