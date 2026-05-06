@@ -16,13 +16,10 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 import redis.asyncio as aioredis
-from fastapi import FastAPI, File, Form, Request, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from starlette.types import Scope
 
 from app.models import (
@@ -40,12 +37,6 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Rate limiter
-# ---------------------------------------------------------------------------
-
-limiter = Limiter(key_func=get_remote_address)
 
 # ---------------------------------------------------------------------------
 # Redis helpers
@@ -115,9 +106,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # tighten in production
@@ -163,9 +151,7 @@ async def _run_analysis(job_id: str, pdf_bytes: bytes, target_role: str | None, 
 # ---------------------------------------------------------------------------
 
 @app.post("/analyze", response_model=AnalyzeResponse, status_code=202)
-@limiter.limit("5/hour")
 async def analyze(
-    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Resume PDF"),
     target_role: str | None = Form(default=None),
@@ -174,7 +160,6 @@ async def analyze(
     """
     Upload a resume PDF and start an analysis job.
     Returns a job_id to poll /results/{job_id} or stream /progress/{job_id}.
-    Rate limited to 5 requests per hour per IP.
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")

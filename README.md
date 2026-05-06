@@ -180,7 +180,7 @@ resume-radar/
 - [x] v0.2 - Semantic matching (ChromaDB + OpenAI embeddings)
 - [x] v0.3 - Resume rewrite suggestions: bullet scoring, market-anchored rewrites
 - [x] v0.4 - SSE progress streaming, static frontend, PDF report download
-- [x] v0.5 - Redis job store, rate limiting
+- [x] v0.5 - Redis job store, frontend polish
 - [x] v0.6 - PDF report redesign, self-hosted fonts
 - [x] v0.7 - Vite + React frontend, manual job description input
 - [x] v1.0 - Open source release: internal docker network, 1h TTL, Ollama support
