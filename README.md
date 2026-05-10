@@ -163,51 +163,9 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 
 ## Architecture
 
-`embed_match` uses a two-pass approach: LLM extraction to pull real required skills from job descriptions (not noisy job board tags), then embeddings + ChromaDB cosine similarity. This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity) - skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap. Falls back to keyword gap analysis if ChromaDB is unreachable.
+`embed_match` uses a two-pass approach: LLM extraction to get real required skills from job descriptions (not noisy job board tags), then embeddings + ChromaDB cosine similarity. This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity). Falls back to keyword gap analysis if ChromaDB is unreachable.
 
 `rewrite_resume` scores each bullet for market impact (1-10) and rewrites those scoring 6 or below, anchored to `missing_skills` or the union of required skills across top jobs for strong profiles.
-
----
-
-## Project Structure
-
-```
-resume-radar/
-├── app/
-│   ├── main.py              # FastAPI endpoints
-│   ├── agent.py             # LangGraph graph + SSE progress queue
-│   ├── pdf_report.py        # weasyprint PDF generation
-│   ├── vector_store.py      # ChromaDB client singleton
-│   ├── models.py            # Pydantic models
-│   ├── config.py            # pydantic-settings + .env
-│   ├── nodes/
-│   │   ├── parse_resume.py
-│   │   ├── search_jobs.py
-│   │   ├── embed_match.py
-│   │   ├── generate_report.py
-│   │   └── rewrite_resume.py
-│   └── tools/
-│       ├── remoteok.py
-│       └── adzuna.py
-├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── src/
-│       ├── App.jsx
-│       ├── main.jsx
-│       ├── hooks/useAnalysis.js
-│       └── components/
-├── tests/
-│   └── test_agent.py
-├── .github/
-│   ├── dependabot.yml
-│   └── workflows/ci.yml
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── .env.example
-```
 
 ---
 
