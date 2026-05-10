@@ -160,7 +160,7 @@ async def rewrite_resume_node(state: AgentState) -> AgentState:
 
     logger.info(f"[{state.job_id}] rewrite_resume: starting")
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
     profile = state.resume_profile
     gaps = state.gap_analysis
@@ -181,7 +181,12 @@ async def rewrite_resume_node(state: AgentState) -> AgentState:
             temperature=0,
         )
         raw = seg_response.choices[0].message.content.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
+        # Defensive parsing: some LLMs (especially smaller local models) ignore
+        # "no markdown" instructions and wrap JSON in code fences or add preamble text.
+        if "```" in raw:
+            raw = raw.split("```json")[-1].split("```")[0].strip()
+        elif "{" in raw:
+            raw = raw[raw.index("{"):]
         segments = json.loads(raw)
     except Exception as e:
         logger.warning(f"[{state.job_id}] rewrite_resume: segmentation failed — {e}")
@@ -231,7 +236,12 @@ async def rewrite_resume_node(state: AgentState) -> AgentState:
             temperature=0.4,
         )
         raw = rw_response.choices[0].message.content.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
+        # Defensive parsing: some LLMs (especially smaller local models) ignore
+        # "no markdown" instructions and wrap JSON in code fences or add preamble text.
+        if "```" in raw:
+            raw = raw.split("```json")[-1].split("```")[0].strip()
+        elif "{" in raw:
+            raw = raw[raw.index("{"):]
         data = json.loads(raw)
         rewrites_raw = data.get("rewrites", [])
     except Exception as e:
