@@ -61,7 +61,7 @@ async def generate_report_node(state: AgentState) -> AgentState:
 
     logger.info(f"[{state.job_id}] generate_report: starting")
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
     profile = state.resume_profile
     gaps = state.gap_analysis
@@ -90,8 +90,19 @@ async def generate_report_node(state: AgentState) -> AgentState:
             temperature=0.3,
         )
         raw_json = response.choices[0].message.content.strip()
+        # Defensive parsing: some LLMs (especially smaller local models) ignore
+        # "no markdown" instructions and wrap JSON in code fences or add preamble text.
+        if "```" in raw_json:
+            raw_json = raw_json.split("```json")[-1].split("```")[0].strip()
+        elif "{" in raw_json:
+            raw_json = raw_json[raw_json.index("{"):]
         data = json.loads(raw_json)
-        recommendations = data.get("recommendations", [])
+        raw_recs = data.get("recommendations", [])
+        # Normalize: model may return list[dict] with 'text' key instead of list[str]
+        recommendations = [
+            r["text"] if isinstance(r, dict) else r
+            for r in raw_recs
+        ]
     except Exception as e:
         logger.warning(f"[{state.job_id}] generate_report: LLM failed, using fallback — {e}")
         # Fallback: generate basic recommendations without LLM

@@ -35,7 +35,7 @@ your resume.pdf
                     ┌────────────────────────┐
                     │      embed_match       │
                     │                        │
-                    │ OpenAI embeddings +    │
+                    │ LLM embeddings +       │
                     │ ChromaDB cosine sim    │
                     │ -> match_score: 0.81   │
                     └────────────┬───────────┘
@@ -66,7 +66,7 @@ When a job description is pasted manually, `search_jobs` is skipped and the pipe
 
 ## Quickstart
 
-**Prerequisites:** Docker · OpenAI API key
+**Prerequisites:** Docker · OpenAI API key (or a local LLM - see [Local LLM](#local-llm))
 
 ```bash
 git clone https://github.com/fulviofavilla/resume-radar
@@ -83,7 +83,44 @@ docker compose up --build
 
 **Optional:** Add Adzuna credentials to `.env` for broader job coverage - free tier, 250 req/day at [developer.adzuna.com](https://developer.adzuna.com/).
 
-**Using a local LLM:** Set `OPENAI_BASE_URL` and `OPENAI_MODEL` in `.env` to point at any OpenAI-compatible endpoint (Ollama, LM Studio) - no code changes needed. If you swap `OPENAI_EMBEDDING_MODEL`, run `docker compose down -v` first to clear the ChromaDB volume and avoid dimension mismatch errors.
+**Privacy note:** If you are using the OpenAI API, consider redacting personal details (name, email, phone, address) from your resume before uploading. OpenAI's API data is not used for model training by default - see their [Privacy Policy](https://openai.com/policies/privacy-policy) and [Terms of Use](https://openai.com/policies/terms-of-use) for details.
+
+---
+
+## Local LLM
+
+ResumeRadar works with any OpenAI-compatible endpoint. To run without sending data to OpenAI, set these in `.env` instead of an API key:
+
+```env
+OPENAI_API_KEY=ollama
+OPENAI_BASE_URL=http://host.docker.internal:11434/v1
+OPENAI_MODEL=llama3.1:8b
+OPENAI_EMBEDDING_MODEL=nomic-embed-text
+```
+
+Tested with [Ollama](https://ollama.com). All Ollama models expose an OpenAI-compatible API, so any model works - better models produce more consistent output. Pull the required models first:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull nomic-embed-text
+```
+
+If you change `OPENAI_EMBEDDING_MODEL`, run `docker compose down -v` first to clear the ChromaDB volume and avoid dimension mismatch errors.
+
+**Linux only:** Ollama listens on `localhost` by default and is not reachable from inside Docker. Configure it to bind to the Docker gateway:
+
+```bash
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+sudo tee /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=172.17.0.1"
+EOF
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+```
+
+`172.17.0.1` is the default Docker gateway on most Linux systems. If the connection still fails, verify yours with `docker network inspect bridge | grep Gateway` and update accordingly.
+
+> Job search still queries RemoteOK and Adzuna APIs. The resume rewrite step may occasionally fail with smaller models - more capable models produce more consistent results.
 
 ---
 
@@ -126,7 +163,7 @@ docker compose up --build
 
 ## Architecture
 
-`embed_match` uses a two-pass approach: LLM extraction to pull real required skills from job descriptions (not noisy job board tags), then OpenAI embeddings + ChromaDB cosine similarity. This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity) - skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap. Falls back to keyword gap analysis if ChromaDB is unreachable.
+`embed_match` uses a two-pass approach: LLM extraction to pull real required skills from job descriptions (not noisy job board tags), then embeddings + ChromaDB cosine similarity. This lifts `match_score` from ~0.1 (keyword overlap) to ~0.8 (semantic similarity) - skills like `"pipeline automation"` match `"data pipelines"` without exact string overlap. Falls back to keyword gap analysis if ChromaDB is unreachable.
 
 `rewrite_resume` scores each bullet for market impact (1-10) and rewrites those scoring 6 or below, anchored to `missing_skills` or the union of required skills across top jobs for strong profiles.
 
@@ -183,7 +220,8 @@ resume-radar/
 - [x] v0.5 - Redis job store, frontend polish
 - [x] v0.6 - PDF report redesign, self-hosted fonts
 - [x] v0.7 - Vite + React frontend, manual job description input
-- [x] v1.0 - Open source release: internal docker network, 1h TTL, Ollama support
+- [x] v1.0 - Open source release: internal docker network, 1h TTL
+- [x] v1.1 - Local LLM support: Ollama, configurable embedding model
 
 ---
 

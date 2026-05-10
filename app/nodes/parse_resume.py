@@ -85,7 +85,7 @@ async def extract_skills_from_job_description(description: str) -> list[str]:
     Returns an empty list on failure (non-blocking).
     """
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
     try:
         response = await client.chat.completions.create(
@@ -101,8 +101,12 @@ async def extract_skills_from_job_description(description: str) -> list[str]:
             temperature=0,
         )
         raw = response.choices[0].message.content.strip()
-        # Strip accidental markdown fences if present
-        raw = raw.replace("```json", "").replace("```", "").strip()
+        # Defensive parsing: some LLMs (especially smaller local models) ignore
+        # "no markdown" instructions and wrap JSON in code fences or add preamble text.
+        if "```" in raw:
+            raw = raw.split("```json")[-1].split("```")[0].strip()
+        elif "[" in raw:
+            raw = raw[raw.index("["):]
         skills = json.loads(raw)
         if isinstance(skills, list):
             return [s for s in skills if isinstance(s, str)]
@@ -120,7 +124,7 @@ async def parse_resume_node(state: AgentState) -> AgentState:
     """
     logger.info(f"[{state.job_id}] parse_resume: starting")
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
     # Step 1: Extract raw text from PDF
     try:
@@ -147,6 +151,12 @@ async def parse_resume_node(state: AgentState) -> AgentState:
             temperature=0,
         )
         raw_json = response.choices[0].message.content.strip()
+        # Defensive parsing: some LLMs (especially smaller local models) ignore
+        # "no markdown" instructions and wrap JSON in code fences or add preamble text.
+        if "```" in raw_json:
+            raw_json = raw_json.split("```json")[-1].split("```")[0].strip()
+        elif "{" in raw_json:
+            raw_json = raw_json[raw_json.index("{"):]
         data = json.loads(raw_json)
     except json.JSONDecodeError as e:
         state.error = f"LLM returned malformed JSON during resume parsing: {str(e)}"

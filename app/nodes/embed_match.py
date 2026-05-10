@@ -53,7 +53,7 @@ async def _embed_texts(texts: list[str]) -> list[list[float]]:
     Returns a list of embedding vectors in the same order as input.
     """
     settings = get_settings()
-    client = AsyncOpenAI(api_key=settings.openai_api_key)
+    client = AsyncOpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
 
     response = await client.embeddings.create(
         model=settings.openai_embedding_model,
