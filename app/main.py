@@ -12,8 +12,27 @@ import asyncio
 import json
 import uuid
 import logging
+import logging.config
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
+
+logging.config.dictConfig({
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        "fontTools": {"level": "ERROR", "propagate": False},
+        "httpx": {"level": "WARNING", "propagate": False},
+        "httpcore": {"level": "WARNING", "propagate": False},
+        "langgraph": {"level": "ERROR", "propagate": False},
+        "langchain": {"level": "ERROR", "propagate": False},
+    }
+})
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, BackgroundTasks
@@ -31,12 +50,6 @@ from app.models import (
 from app.agent import agent, register_progress_queue, unregister_progress_queue
 from app.config import get_settings
 from app.pdf_report import generate_pdf
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Redis helpers
