@@ -16,7 +16,7 @@ pdfminer-six>=20251230
 httpx>=0.28.1
 
 # Config
-pydantic>=2.13.3
+pydantic>=2.13.4
 pydantic-settings>=2.14.0
 
 # Vector DB — semantic matching
