@@ -2,11 +2,6 @@
 
 > AI-powered resume analyzer for tech roles. Upload your PDF, get matched against real remote job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.136+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.1+-FF6B35?logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-1.0-E91E63?logo=databricks&logoColor=white)](https://trychroma.com)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
 [![CI](https://github.com/fulviofavilla/resume-radar/actions/workflows/ci.yml/badge.svg)](https://github.com/fulviofavilla/resume-radar/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22C55E.svg)](LICENSE)
 
@@ -120,8 +115,6 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 
 `172.17.0.1` is the default Docker gateway on most Linux systems. If the connection still fails, verify yours with `docker network inspect bridge | grep Gateway` and update accordingly.
 
-> Job search still queries RemoteOK and Adzuna APIs. The resume rewrite step may occasionally fail with smaller models - more capable models produce more consistent results.
-
 ---
 
 ## Output
@@ -130,20 +123,18 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 {
   "status": "completed",
   "resume_profile": {
-    "skills": ["Python", "SQL", "AWS", "Apache Airflow", "Docker", "PySpark"],
-    "inferred_skills": ["ETL pipelines", "data governance", "CI/CD"],
+    "skills": ["Python", "SQL", "AWS", "Apache Airflow", "Docker"],
+    "inferred_skills": ["ETL pipelines", "CI/CD", "data governance"],
     "seniority": "mid",
     "years_of_experience": 2
   },
   "report": {
     "gap_analysis": {
       "match_score": 0.81,
-      "strengths": ["Python", "SQL", "AWS", "Docker"],
+      "strengths": ["Python", "SQL", "AWS"],
       "missing_skills": ["dbt", "Kafka"]
     },
-    "recommendations": [
-      "Add dbt to your stack - appears in 4/5 top jobs, unlocks $30-50/hr roles"
-    ],
+    "recommendations": ["..."],
     "resume_rewrites": [
       {
         "original": "Designed and optimized scalable data pipelines...",
@@ -169,23 +160,11 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 
 ---
 
-## Roadmap
+## Known limitations
 
-- [x] v0.1 - MVP: PDF -> job search -> gap analysis -> report
-- [x] v0.2 - Semantic matching (ChromaDB + OpenAI embeddings)
-- [x] v0.3 - Resume rewrite suggestions: bullet scoring, market-anchored rewrites
-- [x] v0.4 - SSE progress streaming, static frontend, PDF report download
-- [x] v0.5 - Redis job store, frontend polish
-- [x] v0.6 - PDF report redesign, self-hosted fonts
-- [x] v0.7 - Vite + React frontend, manual job description input
-- [x] v1.0 - Open source release: internal docker network, 1h TTL
-- [x] v1.1 - Local LLM support: Ollama, configurable embedding model
-
----
-
-## Contributing
-
-PRs welcome. Open an issue first for major changes.
+- PDFs with complex layouts (multi-column, LaTeX-generated) may produce garbled text in the resume rewrite section. The analysis and recommendations are unaffected.
+- Job search relies on RemoteOK and Adzuna - pool size varies by day. Providing a job description directly via the manual input tab bypasses this entirely.
+- When running with a local LLM, the resume rewrite step may fail occasionally with smaller models (7-8B). The rest of the pipeline completes normally.
 
 ---
 
