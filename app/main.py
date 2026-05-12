@@ -115,7 +115,7 @@ class SPAStaticFiles(StaticFiles):
 app = FastAPI(
     title="ResumeRadar",
     description="AI-powered resume analyzer for tech roles - match your profile against real jobs, surface skill gaps.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -322,7 +322,7 @@ async def health():
     return {
         "status": "ok",
         "service": "resume-radar",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "redis": "ok" if redis_ok else "unreachable",
     }
 
