@@ -162,7 +162,6 @@ sudo systemctl daemon-reload && sudo systemctl restart ollama
 
 ## Known limitations
 
-- PDFs with complex layouts (multi-column, LaTeX-generated) may produce garbled text in the resume rewrite section. The analysis and recommendations are unaffected.
 - Job search relies on RemoteOK and Adzuna - pool size varies by day. Providing a job description directly via the manual input tab bypasses this entirely.
 - When running with a local LLM, the resume rewrite step may fail occasionally with smaller models (7-8B). The rest of the pipeline completes normally.
 

@@ -67,13 +67,33 @@ Job description:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extract raw text from PDF bytes using pdfplumber."""
+    """Extract raw text from PDF bytes using pdfplumber.
+
+    Uses extract_words() with x_tolerance=1 instead of extract_text() to correctly
+    reconstruct word boundaries in PDFs with tight glyph spacing (e.g. LaTeX templates).
+    extract_text() defaults to x_tolerance=3, which causes words like "DevOpsEngineer"
+    to be merged when the inter-word gap in the PDF is smaller than 3px.
+    """
     text_parts = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page in pdf.pages:
-            text = page.extract_text()
-            if text:
-                text_parts.append(text)
+            words = page.extract_words(x_tolerance=1, y_tolerance=3, keep_blank_chars=False)
+            if not words:
+                continue
+
+            # Group words into lines by vertical proximity, then join with spaces
+            lines: list[list[dict]] = []
+            current_line = [words[0]]
+            for word in words[1:]:
+                if abs(word["top"] - current_line[-1]["top"]) < 5:
+                    current_line.append(word)
+                else:
+                    lines.append(current_line)
+                    current_line = [word]
+            lines.append(current_line)
+
+            page_text = "\n".join(" ".join(w["text"] for w in line) for line in lines)
+            text_parts.append(page_text)
     return "\n".join(text_parts)
 
 
