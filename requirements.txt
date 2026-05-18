@@ -1,7 +1,7 @@
 # API
 fastapi>=0.136.1
-uvicorn[standard]>=0.46.0
-python-multipart>=0.0.28
+uvicorn[standard]>=0.47.0
+python-multipart>=0.0.29
 
 # LLM & Agent
 openai>=2.36.0
