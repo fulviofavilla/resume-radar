@@ -2,9 +2,6 @@
 
 > AI-powered resume analyzer for tech roles. Upload your PDF, get matched against real remote job postings, surface skill gaps, get targeted rewrite suggestions, and download a formatted PDF report.
 
-[![CI](https://github.com/fulviofavilla/resume-radar/actions/workflows/ci.yml/badge.svg)](https://github.com/fulviofavilla/resume-radar/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E.svg)](LICENSE)
-
 ---
 
 ![Demo](docs/resume-radar-demo.gif)
