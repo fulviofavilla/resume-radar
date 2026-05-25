@@ -5,7 +5,7 @@ python-multipart>=0.0.29
 
 # LLM & Agent
 openai>=2.37.0
-langgraph>=1.2.0
+langgraph>=1.2.1
 langchain-core>=1.4.0
 
 # PDF parsing
