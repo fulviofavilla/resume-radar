@@ -26,7 +26,7 @@ chromadb>=1.5.9
 weasyprint>=68.1
 
 # Job store
-redis>=7.4.0
+redis>=8.0.0
 
 # Testing
 pytest>=9.0.3
