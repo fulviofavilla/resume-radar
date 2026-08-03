@@ -9,7 +9,7 @@ langgraph>=1.2.1
 langchain-core>=1.4.0
 
 # PDF parsing
-pdfplumber>=0.11.9
+pdfplumber>=0.11.10
 pdfminer-six>=20251230
 
 # HTTP client (for job APIs)
