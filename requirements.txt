@@ -4,7 +4,7 @@ uvicorn[standard]>=0.48.0
 python-multipart>=0.0.29
 
 # LLM & Agent
-openai>=2.38.0
+openai>=2.53.0
 langgraph>=1.2.1
 langchain-core>=1.4.0
 
