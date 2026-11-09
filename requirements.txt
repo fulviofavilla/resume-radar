@@ -1,7 +1,7 @@
 # API
-fastapi>=0.142.2
+fastapi>=0.162.0
 uvicorn[standard]>=0.54.0
-python-multipart>=0.0.32
+python-multipart>=0.0.33
 
 # LLM & Agent
 openai>=3.23.0
